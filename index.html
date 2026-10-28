@@ -1,0 +1,1461 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="정육각형을 오려 붙이고 복제·회전하며 테셀레이션의 원리를 탐구하는 수업용 웹앱">
+<title>육각 테셀레이션 공방</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a four-step workbench (explore → design → assemble → result); each step pairs a working canvas with its questions. */
+:root{
+  --bg:#EBEEE8; --panel:#F8FAF6; --stage:#FFFFFF; --ink:#1E2923; --muted:#5B6A61; --line:#CFD6CC;
+  --accent:#2D6A52; --accent-ink:#FFFFFF; --accent-soft:#DCEAE2;
+  --p1:#D0503A; --p2:#2E6FBF; --p3:#C98A12; --warn:#B4441F; --ok:#2D6A52;
+  --tileA:#CFE3D6; --tileB:#EADFC2;
+  --f-display:"Do Hyeon","IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#131815; --panel:#1B221E; --stage:#0E1210; --ink:#E4EAE5; --muted:#98A69D; --line:#2D3832;
+  --accent:#6CC29E; --accent-ink:#0E1A14; --accent-soft:#1F3A2E;
+  --p1:#F07A62; --p2:#6AA6F0; --p3:#F0BE4A; --warn:#F08A62; --ok:#6CC29E;
+  --tileA:#2B4A3B; --tileB:#4D4530; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#131815; --panel:#1B221E; --stage:#0E1210; --ink:#E4EAE5; --muted:#98A69D; --line:#2D3832;
+  --accent:#6CC29E; --accent-ink:#0E1A14; --accent-soft:#1F3A2E;
+  --p1:#F07A62; --p2:#6AA6F0; --p3:#F0BE4A; --warn:#F08A62; --ok:#6CC29E;
+  --tileA:#2B4A3B; --tileB:#4D4530; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance;letter-spacing:.01em}
+h1{font-size:30px;line-height:1.1}
+h2{font-size:19px}
+h3{font-size:15px;font-family:var(--f-body);font-weight:600}
+p{margin:0}
+.muted{color:var(--muted)}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px 24px}
+header.top .t{display:flex;flex-direction:column;gap:4px;min-width:0}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:500;padding:7px 14px;border-radius:999px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.seg button small{color:var(--muted);font-weight:400}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button[aria-pressed="true"] small{color:var(--accent-ink);opacity:.8}
+
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.steps button{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;padding:9px 12px;border-radius:10px;cursor:pointer;text-align:left;min-width:0}
+.steps .n{flex:none;font-family:var(--f-mono);width:24px;height:24px;border-radius:50%;display:inline-grid;place-items:center;font-size:12px;background:var(--bg);border:1px solid var(--line)}
+.steps .tx{display:flex;flex-direction:column;min-width:0;line-height:1.3}
+.steps .tx b{font-weight:600;font-size:13.5px}
+.steps .tx small{color:var(--muted);font-size:11.5px}
+.steps button[aria-current="step"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-current="step"] .n{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.steps svg{width:14px;height:14px;flex:none;margin-left:auto;color:var(--muted)}
+
+.view{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+.view.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.view.one{grid-template-columns:minmax(0,1fr)}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.eyebrow{font-size:12px;letter-spacing:.06em;color:var(--accent);font-weight:600}
+.lead{font-size:14.5px;max-width:68ch}
+
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--stage);color:var(--ink);border-radius:8px;padding:6px 11px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.big{font-size:15px;padding:10px 16px;font-weight:600}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:600}
+.btn svg{width:15px;height:15px;flex:none}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,label.chip:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+
+canvas{display:block;width:100%;border-radius:8px;background:var(--stage);border:1px solid var(--line)}
+#ed{aspect-ratio:1/1;touch-action:none;cursor:crosshair}
+#ex{aspect-ratio:4/3;touch-action:none}
+#as{aspect-ratio:4/3;touch-action:none}
+#pv{aspect-ratio:16/10;max-height:68vh;touch-action:none;cursor:grab}
+#pv.grabbing{cursor:grabbing}
+
+.stats{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:13px}
+.stat b,.num{font-family:var(--f-mono);font-weight:500;font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12.5px;border:1px solid currentColor;white-space:nowrap}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.info{color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:18px;height:4px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.legend i.box{height:12px;width:14px;border-radius:3px}
+
+.mt{width:100%;border-collapse:collapse;font-size:13px}
+.mt th,.mt td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+.mt th:first-child,.mt td:first-child{text-align:left}
+.mt thead th{font-weight:600;color:var(--muted);font-size:12px}
+.mt td{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.mt td:first-child{font-family:var(--f-body)}
+.tablewrap{overflow-x:auto}
+
+.row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.field{display:flex;align-items:center;gap:8px;font-size:13px}
+.field input[type=range]{width:120px;accent-color:var(--accent)}
+.field output{font-family:var(--f-mono);font-size:12px;color:var(--muted);min-width:2.5em;font-variant-numeric:tabular-nums}
+input[type=color]{width:34px;height:30px;padding:0;border:1px solid var(--line);border-radius:6px;background:var(--stage);cursor:pointer}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+select{font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--stage);color:var(--ink)}
+.sep{height:1px;background:var(--line)}
+.label{font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:600}
+
+.qs{display:flex;flex-direction:column;gap:14px}
+.q{display:flex;flex-direction:column;gap:6px}
+.q p{font-weight:500}
+.q p .qn{font-family:var(--f-mono);color:var(--accent);margin-right:6px}
+textarea{font:inherit;font-size:13.5px;width:100%;min-height:62px;resize:vertical;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--stage);color:var(--ink)}
+.explain{background:var(--accent-soft);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.explain h3{color:var(--ink)}
+.msg{min-height:1.6em;font-weight:500}
+.msg.ok{color:var(--ok)} .msg.warn{color:var(--warn)} .msg.info{color:var(--muted)}
+.log{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:3px;font-size:13px}
+.log:empty::before{content:"아직 붙인 타일이 없어요.";color:var(--muted);margin-left:-20px}
+
+.pats{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+label.chip{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:12px;background:var(--stage)}
+label.chip input{position:absolute;opacity:0;pointer-events:none}
+label.chip canvas{width:40px;height:40px;border:0;background:transparent}
+label.chip:has(input:checked){border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.swatches{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sw{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted)}
+
+.locked{align-items:center;text-align:center;padding:40px 20px;gap:14px}
+.locked svg{width:40px;height:40px;color:var(--muted)}
+.hint{font-size:12.5px;color:var(--muted)}
+kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--stage)}
+details.teacher{font-size:13px;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:var(--r);padding:12px 14px}
+#appTitle{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.credit{border-top:1px solid var(--line);padding-top:14px;margin-top:6px;text-align:center;font-size:13px;color:var(--muted)}
+details.teacher summary{cursor:pointer;font-weight:600;color:var(--ink)}
+details.teacher ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:20;max-width:calc(100% - 32px)}
+.overlay{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 55%,transparent);display:flex;align-items:center;justify-content:center;z-index:30;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.overlay .card{max-width:820px;width:100%;max-height:100%;overflow:auto}
+.overlay img{width:100%;border-radius:8px;border:1px solid var(--line)}
+
+@media (max-width:900px){
+  .view,.view.even{grid-template-columns:minmax(0,1fr)}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #pv,#ex,#as{aspect-ratio:1/1}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>html{-webkit-text-size-adjust:100%}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="t">
+      <h1 id="appTitle">육각 테셀레이션 공방</h1>
+      <p class="muted">정육각형을 오려 붙이고, 복제하고, 돌려 보며 빈틈없이 평면을 채우는 원리를 찾아봐요.</p>
+    </div>
+    <div class="seg" role="group" aria-label="오려 붙이는 방법">
+      <button id="mode-rot" aria-pressed="true">회전 <small>이웃한 변 · 에셔 도마뱀</small></button>
+      <button id="mode-trans" aria-pressed="false">평행이동 <small>마주 보는 변</small></button>
+    </div>
+  </header>
+
+  <nav class="steps" aria-label="활동 단계">
+    <button data-step="explore"><span class="n">1</span><span class="tx"><b>맞물림 탐구</b><small>왜 들어가야 할까?</small></span></button>
+    <button data-step="design"><span class="n">2</span><span class="tx"><b>나만의 타일</b><small>오려 붙이고 꾸미기</small></span></button>
+    <button data-step="assemble"><span class="n">3</span><span class="tx"><b>타일 이어 붙이기</b><small>복제해서 맞춰 보기</small></span></button>
+    <button data-step="result"><span class="n">4</span><span class="tx"><b>테셀레이션</b><small id="resultSub">3단계를 마치면 열려요</small></span><svg id="lockIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+  </nav>
+
+  <!-- STEP 1 -->
+  <section class="view" data-view="explore" aria-label="1단계 맞물림 탐구">
+    <div class="col">
+      <div class="card">
+        <div class="eyebrow">탐구 1</div>
+        <h2>튀어나간 만큼 들어가야 할까?</h2>
+        <p class="lead" id="exPrompt"></p>
+        <canvas id="ex" aria-label="타일 A와 복제한 타일 B"></canvas>
+        <div class="legend">
+          <span><i class="box" style="background:var(--tileA)"></i>A 내 타일</span>
+          <span><i class="box" style="background:var(--tileB)"></i>B 복제한 타일</span>
+          <span><i class="box" style="background:var(--p1)"></i>겹친 곳</span>
+          <span><i class="box" style="background:var(--p2);opacity:.55"></i>빈틈</span>
+        </div>
+        <div class="bar">
+          <select id="exChallenge" aria-label="문제 고르기"></select>
+          <button class="btn" id="exReset">변 1′ 처음으로</button>
+          <button class="btn" id="exHint" aria-pressed="false">힌트: 점 찍을 자리 보기</button>
+        </div>
+        <p class="hint">점선으로 된 변 1′을 누르면 점이 생겨요. 점을 끌어 변 1′의 모양을 바꾸고, 두 번 누르면 지워져요.</p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div class="card-h"><h2>넓이 재기</h2><span id="exStatus" class="pill warn">아직 안 맞아요</span></div>
+        <div class="tablewrap">
+          <table class="mt">
+            <thead><tr><th>정육각형 넓이를 100으로 볼 때</th><th>튀어나간 넓이</th><th>들어간 넓이</th></tr></thead>
+            <tbody>
+              <tr><td>변 1 <span class="muted">(이미 오려 붙임)</span></td><td id="mOut">0.0</td><td id="mIn">0.0</td></tr>
+              <tr><td>변 1′ <span class="muted">(내가 고치는 변)</span></td><td id="sOut">0.0</td><td id="sIn">0.0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="stats">
+          <span class="stat">A와 B가 겹친 넓이 <b id="exOver">0.0</b></span>
+          <span class="stat">빈틈 넓이 <b id="exGap">0.0</b></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>생각해 보기</h2>
+        <div class="qs">
+          <div class="q"><p><span class="qn">Q1</span>처음 화면에서 A와 B 사이에 겹친 곳이나 빈틈이 생긴 까닭은 무엇일까요?</p><textarea data-note="ex1" aria-label="Q1 답"></textarea></div>
+          <div class="q"><p><span class="qn">Q2</span>변 1′을 어떤 모양으로 바꾸었더니 딱 맞았나요? 변 1의 모양과 비교해 보세요.</p><textarea data-note="ex2" aria-label="Q2 답"></textarea></div>
+          <div class="q"><p><span class="qn">Q3</span>표에서 변 1이 튀어나간 넓이와 변 1′이 들어간 넓이를 비교해 보세요. 왜 같아야 할까요?</p><textarea data-note="ex3" aria-label="Q3 답"></textarea></div>
+        </div>
+        <div class="explain" id="exExplain" hidden><h3>정리</h3><p id="exExplainText"></p></div>
+        <div class="bar"><button class="btn primary" data-go="design">다음: 나만의 타일 만들기 →</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="view even" data-view="design" aria-label="2단계 나만의 타일" hidden>
+    <div class="col">
+      <section class="card" aria-label="타일 편집기">
+        <div class="card-h">
+          <h2>타일 오려 붙이기</h2>
+          <div class="seg" role="group" aria-label="도구">
+            <button id="tool-shape" aria-pressed="true">모양 다듬기</button>
+            <button id="tool-draw" aria-pressed="false">그림 그리기</button>
+          </div>
+        </div>
+        <canvas id="ed" aria-label="정육각형 편집 화면"></canvas>
+        <div class="stats">
+          <span class="stat">넓이 비 <span class="muted">(내 타일 ÷ 정육각형)</span> = <b id="area">1.000</b></span>
+          <span id="valid" class="pill ok">겹침 없음</span>
+        </div>
+        <div class="legend" id="legend"></div>
+        <div class="bar">
+          <button class="btn primary" id="play"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>오려 붙이기 보기</button>
+          <button class="btn" id="undo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 3 2 6l3 3"/><path d="M2.5 6H10a4 4 0 0 1 0 8H7"/></svg>되돌리기</button>
+          <button class="btn" id="delpt" disabled>선택한 점 지우기</button>
+          <button class="btn" id="reset">정육각형으로</button>
+        </div>
+        <div class="row">
+          <label class="field"><input type="checkbox" id="smooth" checked>부드러운 곡선</label>
+          <label class="field"><input type="checkbox" id="snap">격자에 맞추기</label>
+          <label class="field"><input type="checkbox" id="pieces" checked>조각 색 표시</label>
+          <label class="field">예시 <select id="preset"></select></label>
+        </div>
+        <p class="hint" id="hint"></p>
+      </section>
+    </div>
+    <div class="col">
+      <section class="card" aria-label="색과 무늬">
+        <h2>색과 무늬</h2>
+        <div class="label">타일 색</div>
+        <div class="swatches">
+          <div class="sw"><input type="color" id="c0" aria-label="타일 색 1"><span>색 1</span></div>
+          <div class="sw"><input type="color" id="c1" aria-label="타일 색 2"><span>색 2</span></div>
+          <div class="sw"><input type="color" id="c2" aria-label="타일 색 3"><span>색 3</span></div>
+          <label class="field" style="margin-left:6px"><input type="checkbox" id="onecolor">한 가지 색만</label>
+          <select id="palette" aria-label="색 묶음"></select>
+        </div>
+        <div class="label">무늬</div>
+        <div class="pats" id="pats"></div>
+        <div class="row">
+          <label class="field">무늬 색 <input type="color" id="patColor"></label>
+          <label class="field">진하기 <input type="range" id="patAlpha" min="0.1" max="1" step="0.05"><output id="patAlphaO"></output></label>
+          <label class="field">크기 <input type="range" id="patScale" min="0.5" max="2.5" step="0.1"><output id="patScaleO"></output></label>
+        </div>
+        <div class="sep"></div>
+        <div class="label">테두리</div>
+        <div class="row">
+          <label class="field">색 <input type="color" id="outline"></label>
+          <label class="field">굵기 <input type="range" id="outlineW" min="0" max="6" step="0.5"><output id="outlineWO"></output></label>
+        </div>
+        <div class="sep"></div>
+        <div class="label">그림 그리기 펜</div>
+        <div class="row">
+          <label class="field">색 <input type="color" id="penColor"></label>
+          <label class="field">굵기 <input type="range" id="penW" min="1" max="14" step="1"><output id="penWO"></output></label>
+          <button class="btn" id="undoStroke">마지막 선 지우기</button>
+          <button class="btn" id="clearStrokes">그림 모두 지우기</button>
+        </div>
+      </section>
+      <div class="card">
+        <p>타일이 마음에 들면 복제해서 직접 이어 붙여 보세요. 테셀레이션은 그 다음에 볼 수 있어요.</p>
+        <div class="bar"><button class="btn primary" data-go="assemble">다음: 타일 이어 붙이기 →</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="view" data-view="assemble" aria-label="3단계 타일 이어 붙이기" hidden>
+    <div class="col">
+      <div class="card">
+        <div class="eyebrow">탐구 2</div>
+        <h2>복제한 타일을 원본 옆에 붙여 보세요</h2>
+        <p class="lead">‘타일 복제하기’를 누르면 원본과 똑같은 타일이 생겨요. 끌어서 원본이나 이미 붙인 타일 바로 옆에 대 보세요. 딱 맞는 자리에 놓으면 저절로 붙어요.</p>
+        <p class="hint" id="asPlainWarn" hidden>타일이 아직 정육각형 그대로예요. 2단계에서 변을 오려 붙여 모양을 바꾼 뒤 해 보면 훨씬 재미있어요.</p>
+        <div class="bar">
+          <button class="btn primary" id="asDup"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.5A1 1 0 0 1 4 2.5h7"/></svg>타일 복제하기</button>
+          <button class="btn" id="asRotL" disabled><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v3.5h3.5"/><path d="M3.3 6.3A5 5 0 1 1 3 9"/></svg>60° 왼쪽으로</button>
+          <button class="btn" id="asRotR" disabled><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 3v3.5H9.5"/><path d="M12.7 6.3A5 5 0 1 0 13 9"/></svg>60° 오른쪽으로</button>
+          <button class="btn" id="asFlip" disabled><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1.5v13" stroke-dasharray="2 1.5"/><path d="M6 4 2 12h4z"/><path d="M10 4l4 8h-4z"/></svg>뒤집기</button>
+          <button class="btn" id="asDel" disabled>지우기</button>
+          <button class="btn" id="asClear">모두 치우기</button>
+        </div>
+        <canvas id="as" aria-label="타일 조립판"></canvas>
+        <div class="stats">
+          <span class="stat">선택한 타일: <b id="asSelInfo">없음</b></span>
+          <span class="stat">맞게 붙인 타일 <b id="asCount">0</b> / 5</span>
+        </div>
+        <p class="msg info" id="asMsg" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h2>붙인 방법 기록</h2>
+        <ol class="log" id="asLog"></ol>
+      </div>
+      <div class="card">
+        <h2>생각해 보기</h2>
+        <div class="qs">
+          <div class="q"><p><span class="qn">Q1</span>복제한 타일을 돌리지 않고 원본 바로 옆에 붙일 수 있었나요?</p><textarea data-note="as1" aria-label="Q1 답"></textarea></div>
+          <div class="q"><p><span class="qn">Q2</span>몇 도 돌려야 딱 맞았나요? 꼭짓점 하나에 모이는 타일 수와 관련지어 그 까닭을 설명해 보세요.</p><textarea data-note="as2" aria-label="Q2 답"></textarea></div>
+          <div class="q"><p><span class="qn">Q3</span>타일을 뒤집으면(대칭이동) 어떻게 되나요? 왜 그럴까요?</p><textarea data-note="as3" aria-label="Q3 답"></textarea></div>
+        </div>
+        <div class="explain" id="asExplain" hidden><h3>정리</h3><p id="asExplainText"></p></div>
+        <button class="btn primary big" id="finish" disabled>테셀레이션 완성하기</button>
+        <p class="hint" id="finishHint">복제한 타일을 5개 맞게 붙이면 누를 수 있어요.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="view one" data-view="result" aria-label="4단계 테셀레이션" hidden>
+    <div class="card locked" id="resultLocked">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+      <h2>아직 잠겨 있어요</h2>
+      <p class="muted">3단계에서 복제한 타일을 5개 이상 맞게 붙인 뒤 ‘테셀레이션 완성하기’를 누르면 열려요.</p>
+      <button class="btn primary" data-go="assemble">3단계로 가기</button>
+    </div>
+    <section class="card" id="resultCard" aria-label="테셀레이션 미리보기" hidden>
+      <div class="card-h">
+        <h2>나의 테셀레이션</h2>
+        <div class="bar">
+          <label class="field">타일 크기 <input type="range" id="tileSize" min="18" max="140" step="1"><output id="tileSizeO"></output></label>
+          <label class="field"><input type="checkbox" id="showBase" checked>원래 타일 표시</label>
+        </div>
+      </div>
+      <canvas id="pv" aria-label="테셀레이션 미리보기"></canvas>
+      <div class="bar" style="justify-content:space-between">
+        <span class="hint" id="symInfo"></span>
+        <div class="bar">
+          <button class="btn" data-go="design">타일 고치기</button>
+          <button class="btn" id="center">가운데로</button>
+          <button class="btn" id="saveJson">설계 저장</button>
+          <button class="btn" id="loadJson">설계 불러오기</button>
+          <input type="file" id="file" accept=".json,application/json" hidden>
+          <button class="btn primary" id="savePng">이미지로 저장</button>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <details class="teacher" id="teacher" hidden>
+    <summary>선생님 메뉴</summary>
+    <p class="hint" style="margin-top:8px">제목을 빠르게 다섯 번 누르면 열리고 닫혀요. 이 메뉴는 기억되지 않아서 새로 열면 다시 숨겨져요.</p>
+    <ol>
+      <li><b>맞물림 탐구</b>: 변 1을 오려 붙인 타일 A와 복제 타일 B의 겹침·빈틈을 보며, 짝 변이 ‘튀어나간 만큼 들어가야’ 함을 넓이로 확인해요.</li>
+      <li><b>나만의 타일</b>: 짝 변이 자동으로 따라 바뀌는 편집기로 타일을 만들고 꾸며요.</li>
+      <li><b>타일 이어 붙이기</b>: 복제한 타일을 직접 옮기고 돌리고 뒤집어 보며, 회전 방식에서는 120° 회전이 필요함을 스스로 찾아요.</li>
+      <li><b>테셀레이션</b>: 타일 5개를 맞게 붙여야 열려요. 회전·평행이동 방식마다 따로 열려요.</li>
+    </ol>
+    <div class="bar" style="margin-top:10px">
+      <button class="btn" id="tUnlock">지금 방식의 테셀레이션 바로 열기 (시연용)</button>
+      <button class="btn" id="tReset">이 기기의 학생 기록 모두 지우기</button>
+    </div>
+  </details>
+
+  <footer class="credit">© 2026 곡정고등학교 수학교사 J.E.S.</footer>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="overlay" hidden>
+  <div class="card">
+    <div class="card-h"><h2>완성한 테셀레이션</h2><button class="btn" id="closeOv">닫기</button></div>
+    <img id="ovImg" alt="완성한 테셀레이션 이미지">
+    <p class="hint">이미지를 길게 누르거나 마우스 오른쪽 버튼을 눌러 저장하세요.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+/* ---------- geometry ---------- */
+const TAU = Math.PI * 2;
+const V = Array.from({length:6}, (_, k) => [Math.cos(k*Math.PI/3), Math.sin(k*Math.PI/3)]);
+const vtx = k => V[((k % 6) + 6) % 6];
+const HEX_AREA = 3 * Math.sqrt(3) / 2;
+const ID = [1,0,0,1,0,0];
+const mul = (m,n) => [m[0]*n[0]+m[2]*n[1], m[1]*n[0]+m[3]*n[1], m[0]*n[2]+m[2]*n[3], m[1]*n[2]+m[3]*n[3], m[0]*n[4]+m[2]*n[5]+m[4], m[1]*n[4]+m[3]*n[5]+m[5]];
+const ap = (m,p) => [m[0]*p[0]+m[2]*p[1]+m[4], m[1]*p[0]+m[3]*p[1]+m[5]];
+const inv = m => { const d = m[0]*m[3]-m[1]*m[2]; const a=m[3]/d, b=-m[1]/d, c=-m[2]/d, e=m[0]/d; return [a,b,c,e,-(a*m[4]+c*m[5]),-(b*m[4]+e*m[5])]; };
+const tr = (x,y) => [1,0,0,1,x,y];
+const rotAbout = (p,th) => { const c=Math.cos(th), s=Math.sin(th); return [c,s,-s,c, p[0]-c*p[0]+s*p[1], p[1]-s*p[0]-c*p[1]]; };
+const lerpM = (m, t) => m.map((v,i) => ID[i] + (v - ID[i]) * t);
+const HEX = new Path2D(); V.forEach((p,i) => i ? HEX.lineTo(p[0],p[1]) : HEX.moveTo(p[0],p[1])); HEX.closePath();
+const polyPath = pts => { const p = new Path2D(); pts.forEach((q,i) => i ? p.lineTo(q[0],q[1]) : p.moveTo(q[0],q[1])); p.closePath(); return p; };
+
+function pairsFor(mode){
+  if (mode === 'trans') return [0,1,2].map((i,n) => { const a=vtx(i), b=vtx(i+4); return {n, m:i, s:i+3, T:tr(b[0]-a[0], b[1]-a[1]), t:[b[0]-a[0], b[1]-a[1]]}; });
+  return [0,2,4].map((i,n) => {
+    const P=vtx(i+1), A=vtx(i), B=vtx(i+2);
+    let th = Math.atan2(B[1]-P[1], B[0]-P[0]) - Math.atan2(A[1]-P[1], A[0]-P[0]);
+    th = Math.atan2(Math.sin(th), Math.cos(th));
+    return {n, m:i, s:i+1, T:rotAbout(P,th), pivot:P, th};
+  });
+}
+function crPoint(p0,p1,p2,p3,u){ // centripetal Catmull-Rom
+  const d = (a,b) => Math.max(Math.sqrt(Math.hypot(b[0]-a[0], b[1]-a[1])), 1e-4);
+  const t0=0, t1=t0+d(p0,p1), t2=t1+d(p1,p2), t3=t2+d(p2,p3);
+  const t = t1 + (t2-t1)*u;
+  const L = (a,b,ta,tb) => { const w=(t-ta)/(tb-ta); return [a[0]+(b[0]-a[0])*w, a[1]+(b[1]-a[1])*w]; };
+  const A1=L(p0,p1,t0,t1), A2=L(p1,p2,t1,t2), A3=L(p2,p3,t2,t3);
+  const B1=L(A1,A2,t0,t2), B2=L(A2,A3,t1,t3);
+  return L(B1,B2,t1,t2);
+}
+function sampleEdge(i, pts, smooth){
+  const C = [vtx(i), ...pts, vtx(i+1)];
+  const n = C.length, out = [];
+  const ext = (a,b) => [2*a[0]-b[0], 2*a[1]-b[1]];
+  for (let k=0; k<n-1; k++){
+    const p1=C[k], p2=C[k+1];
+    const p0 = k>0 ? C[k-1] : ext(p1,p2);
+    const p3 = k+2<n ? C[k+2] : ext(p2,p1);
+    const N = smooth ? 10 : 1;
+    for (let s=0; s<N; s++) out.push({p: smooth && s>0 ? crPoint(p0,p1,p2,p3,s/N) : p1, seg:k});
+  }
+  out.push({p:C[n-1], seg:n-2});
+  return out;
+}
+function nearestOnCurve(samples, p){ // -> {d, seg}
+  let bd = Infinity, seg = 0;
+  for (let j=0; j<samples.length-1; j++){
+    const a=samples[j].p, b=samples[j+1].p, dx=b[0]-a[0], dy=b[1]-a[1], L=dx*dx+dy*dy;
+    let t = L ? ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L : 0; t = Math.max(0,Math.min(1,t));
+    const d = Math.hypot(a[0]+dx*t-p[0], a[1]+dy*t-p[1]);
+    if (d < bd){ bd = d; seg = samples[j].seg; }
+  }
+  return {d:bd, seg};
+}
+
+/* ---------- state ---------- */
+const STEPS = ['explore','design','assemble','result'];
+const NEED = 5;
+const PALETTES = [
+  {name:'숲 도마뱀', c:['#6E9E5A','#E3B448','#B9563C']},
+  {name:'바다', c:['#2F6FA8','#7CC2C7','#F2E3C2']},
+  {name:'흑백', c:['#1F1F1F','#F4F4F0','#8C8C88']},
+  {name:'파스텔', c:['#F4B6C2','#B9D8F0','#F8E3A3']},
+  {name:'가을', c:['#A3472E','#D98E32','#5E6E3A']},
+];
+const PATTERNS = [['none','없음'],['stripes','줄무늬'],['dots','물방울'],['checker','체크'],['scales','비늘'],['zigzag','지그재그'],['rings','동심원'],['cross','격자']];
+const ON = (A,B) => { const mx=(A[0]+B[0])/2, my=(A[1]+B[1])/2, l=Math.hypot(mx,my); return [mx/l,my/l]; };
+function fromUH(i, list){ const A=vtx(i), B=vtx(i+1), n=ON(A,B); return list.map(([u,h]) => [A[0]+(B[0]-A[0])*u + n[0]*h, A[1]+(B[1]-A[1])*u + n[1]*h]); }
+const PRESETS = {
+  rot: [
+    {name:'여섯 다리', e:{0:[[0.3,0.32],[0.7,-0.22]], 2:[[0.25,-0.2],[0.6,0.3],[0.85,0.15]], 4:[[0.2,0.25],[0.5,-0.3],[0.8,0.1]]}},
+    {name:'바람개비', e:{0:[[0.5,0.38]], 2:[[0.5,0.38]], 4:[[0.5,0.38]]}},
+    {name:'S자 물결', e:{0:[[0.3,0.25],[0.7,-0.25]], 2:[[0.3,0.25],[0.7,-0.25]], 4:[[0.3,0.25],[0.7,-0.25]]}},
+    {name:'빈 정육각형', e:{0:[],2:[],4:[]}},
+  ],
+  trans: [
+    {name:'물고기 느낌', e:{0:[[0.3,0.28],[0.72,-0.18]], 1:[[0.35,-0.12],[0.6,0.32]], 2:[[0.28,-0.26],[0.66,0.2]]}},
+    {name:'물결', e:{0:[[0.25,0.18],[0.75,-0.18]], 1:[[0.25,0.18],[0.75,-0.18]], 2:[[0.25,0.18],[0.75,-0.18]]}},
+    {name:'톱니', e:{0:[[0.33,0.2],[0.66,-0.2]], 1:[[0.5,-0.3]], 2:[[0.5,0.3]]}},
+    {name:'빈 정육각형', e:{0:[],1:[],2:[]}},
+  ]
+};
+const EX_CHALLENGES = [
+  {name:'문제 1 · 볼록 튀어나온 변', uh:[[0.3,0.22],[0.5,0.3],[0.7,0.22]]},
+  {name:'문제 2 · 오목 들어간 변', uh:[[0.35,-0.25],[0.65,-0.25]]},
+  {name:'문제 3 · S자 변', uh:[[0.3,0.26],[0.7,-0.26]]},
+];
+function presetShape(mode, idx){ const p = PRESETS[mode][idx], o = {}; for (const k in p.e) o[k] = fromUH(+k, p.e[k]); return o; }
+const blankEx = () => ({c:0, pts:[], hint:false, solved:false});
+const blankAs = () => ({copies:[], log:[], tries:0});
+
+const defaults = () => ({
+  mode:'rot', step:'explore',
+  shapes:{ rot: presetShape('rot',0), trans: presetShape('trans',0) },
+  strokes:[],
+  smooth:true, snap:false, pieces:true,
+  colors:[...PALETTES[0].c], one:false,
+  pattern:'scales', patColor:'#1E2923', patAlpha:0.25, patScale:1,
+  outline:'#1E2923', outlineW:2,
+  penColor:'#1E2923', penW:5,
+  tileSize:52, showBase:true,
+  ex:{rot:blankEx(), trans:blankEx()},
+  as:{rot:blankAs(), trans:blankAs()},
+  unlocked:{rot:false, trans:false},
+  notes:{},
+});
+const validPts = a => Array.isArray(a) ? a.filter(p => Array.isArray(p) && p.length===2 && p.every(Number.isFinite)) : [];
+function sanitize(o){
+  if (!o || typeof o !== 'object' || !o.shapes) return null;
+  const d = defaults();
+  const out = Object.assign(d, o);
+  if (!['rot','trans'].includes(out.mode)) out.mode = 'rot';
+  if (!STEPS.includes(out.step)) out.step = 'explore';
+  out.ex = {}; out.as = {};
+  for (const m of ['rot','trans']) {
+    const sh = (o.shapes||{})[m] || {}; const fixed = {};
+    for (const pr of pairsFor(m)) fixed[pr.m] = validPts(sh[pr.m]);
+    out.shapes[m] = fixed;
+    const e = (o.ex||{})[m] || {};
+    out.ex[m] = {c:[0,1,2].includes(e.c) ? e.c : 0, pts:validPts(e.pts), hint:!!e.hint, solved:!!e.solved};
+    const a = (o.as||{})[m] || {};
+    out.as[m] = {
+      copies: Array.isArray(a.copies) ? a.copies.filter(c => c && [c.x,c.y,c.a].every(Number.isFinite)).map(c => ({x:c.x, y:c.y, a:((Math.round(c.a/60)*60)%360+360)%360, f:!!c.f, placed:!!c.placed && Array.isArray(c.slot) && c.slot.length===6, slot:Array.isArray(c.slot)&&c.slot.length===6 ? c.slot : null})).slice(0,40) : [],
+      log: Array.isArray(a.log) ? a.log.filter(s => typeof s === 'string').slice(-40) : [],
+      tries: Number.isFinite(a.tries) ? a.tries : 0,
+    };
+  }
+  const u = o.unlocked || {}; out.unlocked = {rot:!!u.rot, trans:!!u.trans};
+  out.notes = {}; if (o.notes && typeof o.notes === 'object') for (const k in o.notes) if (typeof o.notes[k] === 'string') out.notes[k] = o.notes[k].slice(0,2000);
+  if (!Array.isArray(out.strokes)) out.strokes = [];
+  if (!Array.isArray(out.colors) || out.colors.length < 3) out.colors = d.colors;
+  return out;
+}
+const STORE = 'hex-tess-v2';
+let S = defaults();
+try {
+  const raw = localStorage.getItem(STORE) || localStorage.getItem('hex-tess-v1');
+  if (raw){ const o = sanitize(JSON.parse(raw)); if (o) S = o; }
+} catch(e) {}
+let saveT = 0;
+let frozen = false;
+function persist(){ if (frozen) return; clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch(e) {} }, 300); }
+
+let undoStack = [];
+function pushUndo(){ undoStack.push(JSON.stringify({shapes:S.shapes, strokes:S.strokes})); if (undoStack.length > 80) undoStack.shift(); }
+function undo(){ const s = undoStack.pop(); if (!s) { toast('더 되돌릴 것이 없어요'); return; } const o = JSON.parse(s); S.shapes = o.shapes; S.strokes = o.strokes; sel = null; changed(); }
+
+/* ---------- tile model ---------- */
+let tile = null;
+function buildTile(){
+  const pairs = pairsFor(S.mode), sh = S.shapes[S.mode], edges = new Array(6);
+  for (const pr of pairs){
+    const ms = sampleEdge(pr.m, sh[pr.m] || [], S.smooth);
+    edges[pr.m] = ms;
+    edges[pr.s] = ms.map(o => ({p:ap(pr.T,o.p), seg:o.seg})).reverse();
+  }
+  const poly = [];
+  for (let k=0; k<6; k++){ const e = edges[k]; for (let j=0; j<e.length-1; j++) poly.push(e[j].p); }
+  const path = polyPath(poly);
+  let a = 0, bb = [Infinity,Infinity,-Infinity,-Infinity], rmax = 0;
+  for (let i=0; i<poly.length; i++){
+    const p=poly[i], q=poly[(i+1)%poly.length]; a += p[0]*q[1]-q[0]*p[1];
+    if (p[0]<bb[0]) bb[0]=p[0]; if (p[1]<bb[1]) bb[1]=p[1]; if (p[0]>bb[2]) bb[2]=p[0]; if (p[1]>bb[3]) bb[3]=p[1];
+    rmax = Math.max(rmax, Math.hypot(p[0],p[1]));
+  }
+  const plain = pairs.every(pr => !(sh[pr.m]||[]).length);
+  tile = {pairs, edges, poly, path, bb, rmax, plain, area:Math.abs(a)/2, simple:isSimple(poly)};
+}
+function segX(a,b,c,d){
+  const o = (p,q,r) => (q[0]-p[0])*(r[1]-p[1]) - (q[1]-p[1])*(r[0]-p[0]);
+  const d1=o(c,d,a), d2=o(c,d,b), d3=o(a,b,c), d4=o(a,b,d);
+  return ((d1>1e-12&&d2<-1e-12)||(d1<-1e-12&&d2>1e-12)) && ((d3>1e-12&&d4<-1e-12)||(d3<-1e-12&&d4>1e-12));
+}
+function isSimple(P){
+  const n = P.length;
+  const bb = P.map((p,i) => { const q=P[(i+1)%n]; return [Math.min(p[0],q[0]),Math.max(p[0],q[0]),Math.min(p[1],q[1]),Math.max(p[1],q[1])]; });
+  for (let i=0; i<n; i++){
+    for (let j=i+2; j<n; j++){
+      if (i===0 && j===n-1) continue;
+      const A=bb[i], B=bb[j];
+      if (A[1]<B[0]||B[1]<A[0]||A[3]<B[2]||B[3]<A[2]) continue;
+      if (segX(P[i],P[(i+1)%n],P[j],P[(j+1)%n])) return false;
+    }
+  }
+  return true;
+}
+
+/* ---------- theme ---------- */
+let TH = {};
+function readTheme(){
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['stage','ink','muted','line','accent','p1','p2','p3','panel','tileA','tileB','ok']) TH[k] = cs.getPropertyValue('--'+k).trim();
+  TH.pair = [TH.p1, TH.p2, TH.p3];
+}
+
+/* ---------- drawing a tile ---------- */
+function drawPattern(ctx, type, color, alpha, sc){
+  if (type === 'none') return;
+  const R = 2.6;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineCap='round'; ctx.lineJoin='round';
+  if (type === 'stripes'){ const g=0.26*sc; for (let x=-R; x<R; x+=g) ctx.fillRect(x,-R,g*0.45,2*R); }
+  else if (type === 'dots'){ const g=0.26*sc, r=0.065*sc; let row=0; ctx.beginPath(); for (let y=-R; y<R; y+=g*0.866, row++) for (let x=-R+(row%2)*g/2; x<R; x+=g){ ctx.moveTo(x+r,y); ctx.arc(x,y,r,0,TAU); } ctx.fill(); }
+  else if (type === 'checker'){ const g=0.22*sc; let i=0; for (let y=-R; y<R; y+=g, i++){ let j=0; for (let x=-R; x<R; x+=g, j++) if ((i+j)%2===0) ctx.fillRect(x,y,g,g); } }
+  else if (type === 'scales'){ const w=0.26*sc; ctx.lineWidth=0.035*sc; let row=0; for (let y=-R; y<R; y+=w*0.5, row++){ ctx.beginPath(); for (let x=-R+(row%2)*w/2; x<R; x+=w){ ctx.moveTo(x+w/2,y); ctx.arc(x,y,w/2,0,Math.PI); } ctx.stroke(); } }
+  else if (type === 'zigzag'){ const g=0.24*sc, h=0.1*sc; ctx.lineWidth=0.04*sc; for (let y=-R; y<R; y+=g){ ctx.beginPath(); let k=0; for (let x=-R; x<=R; x+=g/2, k++) (k? ctx.lineTo(x, y+(k%2?h:-h)) : ctx.moveTo(x,y-h)); ctx.stroke(); } }
+  else if (type === 'rings'){ const g=0.17*sc; ctx.lineWidth=0.045*sc; for (let r=g; r<R; r+=g){ ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.stroke(); } }
+  else if (type === 'cross'){ const g=0.24*sc; ctx.lineWidth=0.03*sc; ctx.beginPath(); for (let x=-R; x<R; x+=g){ ctx.moveTo(x,-R); ctx.lineTo(x,R); ctx.moveTo(-R,x); ctx.lineTo(R,x); } ctx.stroke(); }
+  ctx.restore();
+}
+function drawStrokes(ctx, strokes){
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  for (const s of strokes){
+    if (!s.pts || !s.pts.length) continue;
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.w*0.012;
+    if (s.pts.length === 1){ ctx.beginPath(); ctx.arc(s.pts[0][0], s.pts[0][1], s.w*0.006, 0, TAU); ctx.fill(); continue; }
+    ctx.beginPath(); s.pts.forEach((p,i) => i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1])); ctx.stroke();
+  }
+  ctx.restore();
+}
+function tileColor(ci){ return S.one ? S.colors[0] : S.colors[ci]; }
+function drawTileLocal(ctx, ci, pxPerUnit, withOutline=true){
+  ctx.fillStyle = tileColor(ci); ctx.fill(tile.path);
+  ctx.save(); ctx.clip(tile.path);
+  drawPattern(ctx, S.pattern, S.patColor, S.patAlpha, S.patScale);
+  drawStrokes(ctx, S.strokes);
+  ctx.restore();
+  if (withOutline && S.outlineW > 0){ ctx.lineJoin='round'; ctx.lineWidth = S.outlineW/pxPerUnit; ctx.strokeStyle = S.outline; ctx.stroke(tile.path); }
+}
+
+/* ---------- tiling ---------- */
+const gensOf = () => { const g = []; for (const pr of tile.pairs){ g.push(pr.T, inv(pr.T)); } return g; };
+const keyOf = M => Math.round(M[4]*50)+','+Math.round(M[5]*50);
+function colorIndex(M){
+  if (S.mode === 'rot'){ const a = Math.atan2(M[1], M[0]); return ((Math.round(a/(TAU/3)) % 3) + 3) % 3; }
+  const t0 = tile.pairs[0].t, t1 = tile.pairs[1].t, cx=M[4], cy=M[5];
+  const det = t0[0]*t1[1]-t0[1]*t1[0];
+  const i = Math.round((cx*t1[1]-cy*t1[0])/det), j = Math.round((t0[0]*cy-t0[1]*cx)/det);
+  return (((i-j) % 3) + 3) % 3;
+}
+function tilesIn(x0,x1,y0,y1){
+  const gens = gensOf();
+  const tx = (x0+x1)/2, ty = (y0+y1)/2;
+  let seed = ID, d = Math.hypot(tx, ty);
+  for (let it=0; it<5000; it++){
+    let best = null, bd = d - 1e-9;
+    for (const G of gens){ const N = mul(seed,G), dd = Math.hypot(N[4]-tx, N[5]-ty); if (dd < bd){ bd = dd; best = N; } }
+    if (!best) break; seed = best; d = bd;
+  }
+  const seen = new Set([keyOf(seed)]), q = [seed], out = [];
+  for (let h=0; h<q.length && out.length < 4000; h++){
+    const M = q[h]; out.push(M);
+    for (const G of gens){
+      const N = mul(M,G);
+      if (N[4]<x0||N[4]>x1||N[5]<y0||N[5]>y1) continue;
+      const k = keyOf(N); if (seen.has(k)) continue;
+      seen.add(k); q.push(N);
+    }
+  }
+  return out;
+}
+// Each colour of the tile is painted once into an offscreen image; tiles are then stamped from it.
+let spriteCache = {};
+function makeSprites(devPerUnit, cssPerUnit){
+  const pad = (S.outlineW/2 + 2) / cssPerUnit;
+  const x0 = tile.bb[0]-pad, y0 = tile.bb[1]-pad, w = tile.bb[2]-tile.bb[0]+2*pad, h = tile.bb[3]-tile.bb[1]+2*pad;
+  const sc = Math.min(devPerUnit, 2048 / Math.max(w, h));
+  const list = [];
+  for (let i=0; i<(S.one ? 1 : 3); i++){
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.ceil(w*sc)); c.height = Math.max(1, Math.ceil(h*sc));
+    const x = c.getContext('2d');
+    x.setTransform(sc,0,0,sc,-x0*sc,-y0*sc);
+    x.lineJoin = 'round'; x.strokeStyle = tileColor(i); x.lineWidth = 1.4/cssPerUnit; x.stroke(tile.path);
+    drawTileLocal(x, i, cssPerUnit);
+    list.push(c);
+  }
+  return {list, x0, y0, w, h};
+}
+function sprites(devPerUnit, cssPerUnit){
+  const k = devPerUnit.toFixed(2)+'|'+cssPerUnit.toFixed(2);
+  return spriteCache[k] || (spriteCache[k] = makeSprites(devPerUnit, cssPerUnit));
+}
+const stamp = (ctx, spr, ci) => ctx.drawImage(spr.list[S.one ? 0 : ci], spr.x0, spr.y0, spr.w, spr.h);
+function renderTiling(ctx, W, H, k, unit, ox, oy, highlight, spr){
+  ctx.setTransform(k,0,0,k,0,0);
+  ctx.fillStyle = TH.stage; ctx.fillRect(0,0,W,H);
+  const cx = W/2 + ox, cy = H/2 + oy, m = tile.rmax + 0.3;
+  const list = tilesIn(-cx/unit - m, (W-cx)/unit + m, -cy/unit - m, (H-cy)/unit + m);
+  for (const M of list){
+    ctx.setTransform(k*unit*M[0], k*unit*M[1], k*unit*M[2], k*unit*M[3], k*(unit*M[4]+cx), k*(unit*M[5]+cy));
+    stamp(ctx, spr, colorIndex(M));
+  }
+  if (highlight){
+    ctx.setTransform(k*unit,0,0,k*unit,k*cx,k*cy);
+    ctx.save(); ctx.setLineDash([6/unit,4/unit]); ctx.lineWidth = 3/unit; ctx.strokeStyle = TH.accent; ctx.stroke(tile.path);
+    ctx.setLineDash([]); ctx.lineWidth = 1.2/unit; ctx.strokeStyle = TH.stage; ctx.stroke(tile.path); ctx.restore();
+  }
+  ctx.setTransform(1,0,0,1,0,0);
+}
+
+/* ---------- canvases & render loop ---------- */
+const $ = id => document.getElementById(id);
+let dpr = Math.min(window.devicePixelRatio || 1, 2);
+const CV = {};
+const STEP_OF = {ex:'explore', ed:'design', as:'assemble', pv:'result'};
+for (const k of ['ex','ed','as','pv']){
+  const el = $(k); CV[k] = {el, ctx:el.getContext('2d'), w:0, h:0};
+  new ResizeObserver(() => fitOne(k)).observe(el);
+}
+function fitOne(k){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const c = CV[k]; c.w = c.el.clientWidth; c.h = c.el.clientHeight;
+  c.el.width = Math.max(1, Math.round(c.w*dpr)); c.el.height = Math.max(1, Math.round(c.h*dpr));
+  request(k);
+}
+let raf = 0, dirtyTile = true;
+const need = {ex:false, ed:false, as:false, pv:false};
+let fontFamily = '';
+const FONT = () => fontFamily || (fontFamily = getComputedStyle(document.body).fontFamily);
+function ensureTile(){ if (dirtyTile || !tile){ buildTile(); updateInfo(); dirtyTile = false; spriteCache = {}; } }
+function request(which){
+  if (which) need[which] = true; else for (const k in need) need[k] = true;
+  if (!raf) raf = requestAnimationFrame(frame);
+}
+function frame(){
+  raf = 0; ensureTile();
+  for (const k in need){
+    if (!need[k]) continue; need[k] = false;
+    if (STEP_OF[k] !== S.step || !CV[k].w) continue;
+    if (k==='ex') drawExplore(); else if (k==='ed') drawEditor(); else if (k==='as') drawBoard(); else drawPreview();
+  }
+}
+function changed(){ dirtyTile = true; persist(); request(); }
+const toWorld = (k, e, unit, c) => { const r = CV[k].el.getBoundingClientRect(); return [(e.clientX - r.left - CV[k].w/2)/unit + c[0], (e.clientY - r.top - CV[k].h/2)/unit + c[1]]; };
+const HIT = document.createElement('canvas').getContext('2d');
+const inPath = (p, x, y, rule) => HIT.isPointInPath(p, x, y, rule || 'nonzero');
+
+/* =========================================================
+   STEP 1 · explore: fix edge 1′ so the copy B fits A
+   ========================================================= */
+const exS = () => S.ex[S.mode];
+let exG = null, exDirty = true, exM = null, exDrag = -1, exPend = 0;
+const exPair = () => pairsFor(S.mode)[0];
+function exTargets(){ const pr = exPair(); return fromUH(pr.m, EX_CHALLENGES[exS().c].uh).map(p => ap(pr.T, p)).reverse(); }
+function buildEx(){
+  const pr = exPair(), E = exS();
+  const mPts = fromUH(pr.m, EX_CHALLENGES[E.c].uh);
+  const mS = sampleEdge(pr.m, mPts, true);
+  const sS = sampleEdge(pr.s, E.pts, true);
+  const poly = [];
+  for (let k=0; k<6; k++){
+    if (k === pr.m) mS.slice(0,-1).forEach(o => poly.push(o.p));
+    else if (k === pr.s) sS.slice(0,-1).forEach(o => poly.push(o.p));
+    else poly.push(vtx(k));
+  }
+  const bM = mS.map(o => ap(pr.T, o.p));
+  const bb = pts => { const b=[Infinity,Infinity,-Infinity,-Infinity]; for (const p of pts){ b[0]=Math.min(b[0],p[0]); b[1]=Math.min(b[1],p[1]); b[2]=Math.max(b[2],p[0]); b[3]=Math.max(b[3],p[1]); } return [b[0]-0.03,b[1]-0.03,b[2]+0.03,b[3]+0.03]; };
+  exG = {pr, mPts, mS, sS, bM, poly,
+    A: polyPath(poly),
+    Pm: polyPath(mS.map(o=>o.p)), Ps: polyPath(sS.map(o=>o.p)),
+    R: polyPath([...sS.map(o=>o.p), ...bM]),
+    bbM: bb(mS.map(o=>o.p)), bbS: bb([...sS.map(o=>o.p), ...bM]),
+    Ti: inv(pr.T)};
+  exDirty = false;
+}
+function sampleArea(b, st, fn){ let n = 0; for (let y=b[1]+st/2; y<b[3]; y+=st) for (let x=b[0]+st/2; x<b[2]; x+=st) if (fn(x,y)) n++; return n*st*st; }
+function exMeasure(){
+  const g = exG, st = 0.012, pct = v => v / HEX_AREA * 100;
+  const inA = (x,y) => inPath(g.A, x, y);
+  const inB = (x,y) => { const q = ap(g.Ti, [x,y]); return inPath(g.A, q[0], q[1]); };
+  const inHex = (x,y) => inPath(HEX, x, y);
+  exM = {
+    mOut: pct(sampleArea(g.bbM, st, (x,y) => inPath(g.Pm,x,y,'evenodd') && !inHex(x,y))),
+    mIn:  pct(sampleArea(g.bbM, st, (x,y) => inPath(g.Pm,x,y,'evenodd') && inHex(x,y))),
+    sOut: pct(sampleArea(g.bbS, st, (x,y) => inPath(g.Ps,x,y,'evenodd') && !inHex(x,y))),
+    sIn:  pct(sampleArea(g.bbS, st, (x,y) => inPath(g.Ps,x,y,'evenodd') && inHex(x,y))),
+    over: pct(sampleArea(g.bbS, st, (x,y) => inA(x,y) && inB(x,y))),
+    gap:  pct(sampleArea(g.bbS, st, (x,y) => inPath(g.R,x,y,'evenodd') && !inA(x,y) && !inB(x,y))),
+  };
+  exM.ok = exM.over + exM.gap < 0.6;
+  if (exM.ok && !exS().solved){ exS().solved = true; persist(); toast('딱 맞았어요! 정리를 읽어 보세요.'); }
+  updateExUI();
+}
+function exView(){ const c = CV.ex, T = exPair().T; return {unit: Math.min(c.w/4.8, c.h/4.0), c:[T[4]/2, T[5]/2]}; }
+// measuring areas samples a grid, so run it at most every 80 ms while dragging
+function exTouch(){ exDirty = true; persist(); request('ex'); if (!exPend) exPend = setTimeout(() => { exPend = 0; if (exDirty) buildEx(); exMeasure(); request('ex'); }, 80); }
+
+CV.ex.el.addEventListener('pointerdown', e => {
+  if (exDirty) buildEx();
+  const {unit, c} = exView(), p = toWorld('ex', e, unit, c), E = exS(), tol = 14/unit;
+  CV.ex.el.setPointerCapture(e.pointerId);
+  let bi = -1, bd = tol;
+  E.pts.forEach((q,i) => { const d = Math.hypot(q[0]-p[0], q[1]-p[1]); if (d < bd){ bd = d; bi = i; } });
+  if (bi >= 0){ exDrag = bi; return; }
+  const h = nearestOnCurve(exG.sS, p);
+  if (h.d < 12/unit){ E.pts.splice(h.seg, 0, p); exDrag = h.seg; exTouch(); }
+});
+CV.ex.el.addEventListener('pointermove', e => {
+  const {unit, c} = exView(), p = toWorld('ex', e, unit, c);
+  if (exDrag < 0){
+    if (exDirty) buildEx();
+    const E = exS(); const onPt = E.pts.some(q => Math.hypot(q[0]-p[0], q[1]-p[1]) < 14/unit);
+    CV.ex.el.style.cursor = onPt ? 'grab' : nearestOnCurve(exG.sS, p).d < 12/unit ? 'copy' : 'default';
+    return;
+  }
+  let q = [Math.max(-2.6, Math.min(2.6, p[0])), Math.max(-2.6, Math.min(2.6, p[1]))];
+  for (const t of exTargets()) if (Math.hypot(t[0]-q[0], t[1]-q[1]) < 0.06){ q = t; break; }
+  exS().pts[exDrag] = q; exTouch();
+});
+const exEnd = () => { if (exDrag >= 0){ exDrag = -1; exTouch(); } };
+CV.ex.el.addEventListener('pointerup', exEnd);
+CV.ex.el.addEventListener('pointercancel', exEnd);
+CV.ex.el.addEventListener('dblclick', e => {
+  const {unit, c} = exView(), p = toWorld('ex', e, unit, c), E = exS();
+  const i = E.pts.findIndex(q => Math.hypot(q[0]-p[0], q[1]-p[1]) < 14/unit);
+  if (i >= 0){ E.pts.splice(i,1); exTouch(); }
+});
+
+function drawExplore(){
+  if (exDirty) buildEx();
+  const g = exG, ctx = CV.ex.ctx, W = CV.ex.w, H = CV.ex.h, {unit, c} = exView(), E = exS(), pr = g.pr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle = TH.stage; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = TH.line;
+  const gs = 0.25*unit, ox = (W/2 - c[0]*unit), oy = (H/2 - c[1]*unit);
+  for (let x = ((ox % gs)+gs)%gs; x < W; x += gs) for (let y = ((oy % gs)+gs)%gs; y < H; y += gs) ctx.fillRect(x-1,y-1,2,2);
+  const L = () => ctx.setTransform(dpr*unit,0,0,dpr*unit,dpr*ox,dpr*oy);
+  L();
+  const lw = px => px/unit;
+  // gap (blue) underneath, then the two tiles, then the overlap (red) on top
+  ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = TH.p2; ctx.fill(g.R, 'evenodd'); ctx.restore();
+  ctx.fillStyle = TH.tileA; ctx.fill(g.A);
+  ctx.save(); ctx.transform(...pr.T); ctx.fillStyle = TH.tileB; ctx.fill(g.A); ctx.restore();
+  ctx.save(); ctx.clip(g.A); ctx.transform(...pr.T); ctx.globalAlpha = 0.8; ctx.fillStyle = TH.p1; ctx.fill(g.A); ctx.restore();
+  // outlines
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.lineWidth = lw(1.6); ctx.strokeStyle = TH.ink; ctx.stroke(g.A);
+  ctx.save(); ctx.transform(...pr.T); ctx.setLineDash([lw(6),lw(4)]); ctx.lineWidth = lw(1.4); ctx.strokeStyle = TH.muted; ctx.stroke(g.A); ctx.restore();
+  const line = (pts, w, dash) => { ctx.beginPath(); pts.forEach((p,i) => i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1])); ctx.lineWidth = lw(w); ctx.strokeStyle = TH.p1; ctx.setLineDash(dash ? [lw(8),lw(5)] : []); ctx.stroke(); ctx.setLineDash([]); };
+  line(g.mS.map(o=>o.p), 4.5, false);       // A's edge 1
+  line(g.bM, 2.2, false);                    // B's edge 1 (sits on A's 1′)
+  line(g.sS.map(o=>o.p), 4, true);          // A's edge 1′ (editable)
+  // screen-space marks
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const S2 = p => [ox + p[0]*unit, oy + p[1]*unit];
+  const F = FONT();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const big = (p, t) => { const s = S2(p); ctx.font = '28px ' + getComputedStyle(document.documentElement).getPropertyValue('--f-display'); ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.75; ctx.fillText(t, s[0], s[1]); ctx.globalAlpha = 1; };
+  big([0,0], 'A'); big(ap(pr.T,[0,0]), 'B');
+  const tag = (p, t) => { const s = S2(p); ctx.font = '600 12px ' + F; const w = ctx.measureText(t).width + 14; ctx.fillStyle = TH.stage; ctx.strokeStyle = TH.p1; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(s[0]-w/2, s[1]-10, w, 20, 10) : ctx.rect(s[0]-w/2, s[1]-10, w, 20); ctx.fill(); ctx.stroke(); ctx.fillStyle = TH.p1; ctx.fillText(t, s[0], s[1]+0.5); };
+  const mid = (i, k) => { const A=vtx(i), B=vtx(i+1), n=ON(A,B); return [[(A[0]+B[0])/2 - n[0]*k, (A[1]+B[1])/2 - n[1]*k], n]; };
+  { const [p] = mid(pr.m, 0.42); tag(p, '변 1'); }
+  { const [p] = mid(pr.s, 0.5); tag(p, '변 1′'); }
+  // how B was made
+  ctx.strokeStyle = TH.ink; ctx.fillStyle = TH.ink; ctx.lineWidth = 1.5;
+  if (pr.pivot){
+    const s = S2(pr.pivot); ctx.beginPath(); ctx.arc(s[0], s[1], 5, 0, TAU); ctx.fill();
+
+  }
+  { const bc = S2(ap(pr.T,[0,0])); ctx.font = '500 12.5px ' + F; ctx.fillStyle = TH.muted; ctx.fillText(pr.pivot ? 'A를 ● 중심으로 120° 회전' : 'A를 그대로 평행이동', bc[0], bc[1] + 26); }
+  // hint targets
+  if (E.hint){ for (const t of exTargets()){ const s = S2(t); ctx.beginPath(); ctx.arc(s[0], s[1], 9, 0, TAU); ctx.setLineDash([3,3]); ctx.strokeStyle = TH.p1; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]); } }
+  // handles
+  E.pts.forEach(q => { const s = S2(q); ctx.beginPath(); ctx.arc(s[0], s[1], 7, 0, TAU); ctx.fillStyle = TH.p1; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = TH.stage; ctx.stroke(); });
+  if (exM && exM.ok){
+    const msg = '딱 맞았어요! 겹친 곳도 빈틈도 없어요';
+    ctx.font = '600 14px ' + F; const w = ctx.measureText(msg).width + 28;
+    ctx.fillStyle = TH.ok; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(W/2-w/2, 12, w, 32, 16) : ctx.rect(W/2-w/2,12,w,32); ctx.fill();
+    ctx.fillStyle = TH.stage; ctx.fillText(msg, W/2, 28.5);
+  }
+}
+function updateExUI(){
+  const f = v => v.toFixed(1);
+  if (exM){
+    $('mOut').textContent = f(exM.mOut); $('mIn').textContent = f(exM.mIn);
+    $('sOut').textContent = f(exM.sOut); $('sIn').textContent = f(exM.sIn);
+    $('exOver').textContent = f(exM.over); $('exGap').textContent = f(exM.gap);
+    const st = $('exStatus');
+    if (exM.ok){ st.className = 'pill ok'; st.textContent = '딱 맞아요'; }
+    else if (exM.over > 0.3 && exM.gap > 0.3){ st.className = 'pill warn'; st.textContent = '겹친 곳과 빈틈이 있어요'; }
+    else if (exM.over > 0.3){ st.className = 'pill warn'; st.textContent = '겹친 곳이 있어요'; }
+    else { st.className = 'pill warn'; st.textContent = '빈틈이 있어요'; }
+  }
+  const E = exS();
+  $('exHint').setAttribute('aria-pressed', E.hint);
+  $('exExplain').hidden = !E.solved;
+  $('exPrompt').innerHTML = S.mode === 'rot'
+    ? '타일 A의 <b>변 1</b>은 이미 오려 붙였어요. A를 복제한 타일 B를 꼭짓점 ●을 중심으로 <b>120° 돌려</b> 이웃에 붙였더니, 겹친 곳과 빈틈이 생겼어요. A의 <b>변 1′</b>을 고쳐서 B와 딱 맞게 만들어 보세요.'
+    : '타일 A의 <b>변 1</b>은 이미 오려 붙였어요. A를 복제한 타일 B를 <b>그대로 밀어(평행이동)</b> 마주 보는 쪽에 붙였더니, 겹친 곳과 빈틈이 생겼어요. A의 <b>변 1′</b>을 고쳐서 B와 딱 맞게 만들어 보세요.';
+  $('exExplainText').textContent = (S.mode === 'rot'
+    ? 'B는 A를 꼭짓점 ●을 중심으로 120° 돌린 도형이라 A와 모양이 똑같아요. 그래서 A의 변 1에서 튀어나온 조각이 B에서도 똑같이 튀어나와, 돌아간 채로 A의 변 1′ 자리로 들어와요.'
+    : 'B는 A를 그대로 밀어 옮긴 도형이라 A와 모양이 똑같아요. 그래서 A의 변 1에서 튀어나온 조각이 B에서도 똑같이 튀어나와 A의 변 1′ 자리로 들어와요.')
+    + ' A의 변 1′이 바로 그 조각만큼 들어가 있어야 겹침도 빈틈도 없어요. 덜 들어가면 겹치고, 더 들어가면 빈틈이 생겨요. 결국 변 1′은 변 1을 옮긴 모양이고, 튀어나간 넓이와 들어간 넓이가 같아서 타일 전체의 넓이는 정육각형과 같아요.';
+}
+const exSel = $('exChallenge');
+exSel.innerHTML = EX_CHALLENGES.map((c,i) => `<option value="${i}">${c.name}</option>`).join('');
+exSel.onchange = () => { const E = exS(); E.c = +exSel.value; E.pts = []; E.solved = false; exM = null; exTouch(); };
+$('exReset').onclick = () => { exS().pts = []; exTouch(); };
+$('exHint').onclick = () => { const E = exS(); E.hint = !E.hint; updateExUI(); persist(); request('ex'); };
+
+/* =========================================================
+   STEP 2 · design (linked-edge editor)
+   ========================================================= */
+const ed = CV.ed.el;
+const eUnit = () => CV.ed.w / 3.7;
+const edLocal = e => toWorld('ed', e, eUnit(), [0,0]);
+let sel = null, drag = null, hover = null, curStroke = null, anim = null;
+const LIM = 1.8;
+function handles(){
+  const out = [], sh = S.shapes[S.mode];
+  for (const pr of tile.pairs){
+    (sh[pr.m]||[]).forEach((p, idx) => { out.push({pr, idx, slave:false, p}); out.push({pr, idx, slave:true, p:ap(pr.T, p)}); });
+  }
+  return out;
+}
+function hitHandle(p){
+  const tol = 13/eUnit(); let best=null, bd=tol;
+  for (const h of handles()){ const d = Math.hypot(h.p[0]-p[0], h.p[1]-p[1]); if (d < bd){ bd=d; best=h; } }
+  return best;
+}
+function hitCurve(p){
+  const tol = 11/eUnit(); let best=null, bd=tol;
+  for (const pr of tile.pairs){
+    for (const [ei, slave] of [[pr.m,false],[pr.s,true]]){
+      const e = tile.edges[ei];
+      for (let j=0; j<e.length-1; j++){
+        const a=e[j].p, b=e[j+1].p, dx=b[0]-a[0], dy=b[1]-a[1], L=dx*dx+dy*dy;
+        let t = L ? ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L : 0; t = Math.max(0,Math.min(1,t));
+        const d = Math.hypot(a[0]+dx*t-p[0], a[1]+dy*t-p[1]);
+        if (d < bd){ bd=d; best={pr, slave, seg: slave ? e[j+1].seg : e[j].seg}; }
+      }
+    }
+  }
+  return best;
+}
+function snapP(p){
+  let q = [Math.max(-LIM,Math.min(LIM,p[0])), Math.max(-LIM,Math.min(LIM,p[1]))];
+  if (S.snap){ const g = 0.125; q = [Math.round(q[0]/g)*g, Math.round(q[1]/g)*g]; }
+  return q;
+}
+function setHandle(pr, idx, slave, p){ S.shapes[S.mode][pr.m][idx] = snapP(slave ? ap(inv(pr.T), p) : p); }
+ed.addEventListener('pointerdown', e => {
+  if (anim) return;
+  ensureTile();
+  const p = edLocal(e);
+  ed.setPointerCapture(e.pointerId);
+  if (S.tool === 'draw'){ pushUndo(); curStroke = {color:S.penColor, w:S.penW, pts:[p]}; S.strokes.push(curStroke); changed(); return; }
+  const h = hitHandle(p);
+  if (h){ pushUndo(); drag = h; sel = {m:h.pr.m, idx:h.idx}; changed(); return; }
+  const c = hitCurve(p);
+  if (c){
+    pushUndo();
+    S.shapes[S.mode][c.pr.m].splice(c.seg, 0, [0,0]);
+    drag = {pr:c.pr, idx:c.seg, slave:c.slave};
+    setHandle(c.pr, c.seg, c.slave, p);
+    sel = {m:c.pr.m, idx:c.seg}; changed(); return;
+  }
+  sel = null; changed();
+});
+ed.addEventListener('pointermove', e => {
+  const p = edLocal(e);
+  if (curStroke){ const last = curStroke.pts[curStroke.pts.length-1]; if (Math.hypot(p[0]-last[0], p[1]-last[1]) > 0.008){ curStroke.pts.push(p); changed(); } return; }
+  if (drag){ setHandle(drag.pr, drag.idx, drag.slave, p); changed(); return; }
+  if (S.tool === 'shape' && !anim){
+    ensureTile();
+    const h = hitHandle(p), c = h ? null : hitCurve(p);
+    const nh = h ? {type:'h', m:h.pr.m, idx:h.idx} : c ? {type:'c', m:c.pr.m} : null;
+    ed.style.cursor = h ? 'grab' : c ? 'copy' : 'default';
+    if (JSON.stringify(nh) !== JSON.stringify(hover)){ hover = nh; request('ed'); }
+  }
+});
+const endPtr = () => { if (drag || curStroke){ drag = null; curStroke = null; persist(); } };
+ed.addEventListener('pointerup', endPtr);
+ed.addEventListener('pointercancel', endPtr);
+ed.addEventListener('pointerleave', () => { if (hover){ hover=null; request('ed'); } });
+ed.addEventListener('dblclick', e => {
+  if (S.tool !== 'shape') return;
+  const h = hitHandle(edLocal(e));
+  if (h){ pushUndo(); S.shapes[S.mode][h.pr.m].splice(h.idx,1); sel=null; changed(); }
+});
+function deleteSel(){ if (!sel) return; pushUndo(); S.shapes[S.mode][sel.m].splice(sel.idx,1); sel=null; changed(); }
+
+function drawEditor(){
+  const F = FONT(), ctx = CV.ed.ctx, eW = CV.ed.w, eH = CV.ed.h, u = eUnit(), cx = eW/2, cy = eH/2;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle = TH.stage; ctx.fillRect(0,0,eW,eH);
+  ctx.fillStyle = TH.line;
+  const g = 0.25*u;
+  for (let x = cx % g; x < eW; x += g) for (let y = cy % g; y < eH; y += g){ ctx.fillRect(x-1,y-1,2,2); }
+  const L = () => ctx.setTransform(dpr*u,0,0,dpr*u,dpr*cx,dpr*cy);
+  L();
+  ctx.save(); ctx.globalAlpha = 0.9; drawTileLocal(ctx, 0, u, false); ctx.restore();
+  ctx.save(); ctx.setLineDash([5/u,4/u]); ctx.lineWidth = 1.3/u; ctx.strokeStyle = TH.muted; ctx.stroke(HEX); ctx.restore();
+  const piece = pr => polyPath(tile.edges[pr.m].map(o => o.p));
+  if (S.pieces || anim){
+    for (const pr of tile.pairs){
+      const pth = piece(pr); const col = TH.pair[pr.n];
+      ctx.save(); ctx.globalAlpha = 0.28; ctx.fillStyle = col; ctx.fill(pth, 'evenodd'); ctx.restore();
+      ctx.save(); L(); ctx.transform(...pr.T); ctx.globalAlpha = 0.28; ctx.fillStyle = col; ctx.fill(pth,'evenodd'); ctx.restore();
+    }
+  }
+  L();
+  for (const pr of tile.pairs){
+    const col = TH.pair[pr.n];
+    for (const [ei, master] of [[pr.m,true],[pr.s,false]]){
+      const e = tile.edges[ei], hot = hover && hover.m === pr.m;
+      ctx.beginPath(); e.forEach((o,i) => i ? ctx.lineTo(o.p[0],o.p[1]) : ctx.moveTo(o.p[0],o.p[1]));
+      ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.lineWidth = (hot ? 5 : 3.2)/u; ctx.strokeStyle = col;
+      if (!master) ctx.setLineDash([8/u,5/u]);
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.font = '600 12px ' + F; ctx.textAlign='center'; ctx.textBaseline='middle';
+  const mark = (p, txt, col) => {
+    const sx = cx + p[0]*u, sy = cy + p[1]*u;
+    ctx.fillStyle = TH.stage; ctx.beginPath(); ctx.arc(sx,sy,10,0,TAU); ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = col; ctx.stroke(); ctx.fillStyle = col; ctx.fillText(txt, sx, sy+0.5);
+  };
+  for (const pr of tile.pairs){
+    for (const [ei, sfx] of [[pr.m,''],[pr.s,'′']]){
+      const A=vtx(ei), B=vtx(ei+1), n = ON(A,B), mid=[(A[0]+B[0])/2,(A[1]+B[1])/2];
+      mark([mid[0]-n[0]*0.2, mid[1]-n[1]*0.2], (pr.n+1)+sfx, TH.pair[pr.n]);
+    }
+    if (pr.pivot){
+      const sx = cx + pr.pivot[0]*u, sy = cy + pr.pivot[1]*u;
+      ctx.fillStyle = TH.ink; ctx.beginPath(); ctx.arc(sx,sy,5,0,TAU); ctx.fill();
+      ctx.strokeStyle = TH.ink; ctx.lineWidth = 1.4; ctx.beginPath();
+      const out = Math.atan2(pr.pivot[1], pr.pivot[0]);
+      ctx.arc(sx,sy,14,out-0.9,out+0.9); ctx.stroke();
+      const ex = sx + 14*Math.cos(out+0.9), ey = sy + 14*Math.sin(out+0.9), ta = out+0.9+Math.PI/2;
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex-6*Math.cos(ta-0.5), ey-6*Math.sin(ta-0.5)); ctx.moveTo(ex,ey); ctx.lineTo(ex-6*Math.cos(ta+0.5), ey-6*Math.sin(ta+0.5)); ctx.stroke();
+      ctx.fillStyle = TH.muted; ctx.font = '500 11px ' + F;
+      ctx.fillText('120°', sx + 30*Math.cos(out), sy + 30*Math.sin(out));
+      ctx.font = '600 12px ' + F;
+    }
+  }
+  if (S.tool === 'shape' && !anim){
+    for (const h of handles()){
+      const sx = cx + h.p[0]*u, sy = cy + h.p[1]*u, col = TH.pair[h.pr.n];
+      const isSel = sel && sel.m === h.pr.m && sel.idx === h.idx;
+      ctx.beginPath(); ctx.arc(sx, sy, isSel ? 8 : 6.5, 0, TAU);
+      if (h.slave){ ctx.fillStyle = TH.stage; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = col; ctx.stroke(); }
+      else { ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = TH.stage; ctx.stroke(); }
+      if (isSel){ ctx.beginPath(); ctx.arc(sx,sy,12,0,TAU); ctx.lineWidth=1.5; ctx.strokeStyle=TH.ink; ctx.stroke(); }
+    }
+  }
+  if (anim){
+    const per = 1.9, el = (performance.now() - anim.t0)/1000;
+    const idx = Math.floor(el/per), f = (el % per)/per;
+    if (idx >= tile.pairs.length){ anim = null; $('play').disabled = false; request('ed'); return; }
+    const pr = tile.pairs[idx], col = TH.pair[pr.n];
+    const ease = x => x<0.5 ? 2*x*x : 1-Math.pow(-2*x+2,2)/2;
+    const t = f < 0.25 ? 0 : f > 0.85 ? 1 : ease((f-0.25)/0.6);
+    const M = pr.pivot ? rotAbout(pr.pivot, pr.th*t) : lerpM(pr.T, t);
+    const pth = piece(pr);
+    ctx.setTransform(dpr*u,0,0,dpr*u,dpr*cx,dpr*cy); ctx.transform(...M);
+    const blink = f < 0.25 ? 0.35 + 0.35*Math.sin(f*40) : 0.6;
+    ctx.globalAlpha = Math.max(0.2, blink); ctx.fillStyle = col; ctx.fill(pth,'evenodd');
+    ctx.globalAlpha = 1; ctx.lineWidth = 2/u; ctx.strokeStyle = col; ctx.stroke(pth);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const msg = pr.pivot ? `변 ${idx+1}의 조각을 ● 중심으로 120° 돌려 변 ${idx+1}′에 붙여요` : `변 ${idx+1}의 조각을 그대로 밀어 마주 보는 변 ${idx+1}′에 붙여요`;
+    ctx.font = '600 13px ' + F;
+    const w = ctx.measureText(msg).width + 24;
+    ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(eW/2-w/2, 10, w, 28, 14) : ctx.rect(eW/2-w/2,10,w,28); ctx.fill();
+    ctx.globalAlpha = 1; ctx.fillStyle = TH.stage; ctx.textAlign='center'; ctx.fillText(msg, eW/2, 24.5);
+    request('ed');
+  }
+}
+
+/* =========================================================
+   STEP 3 · assemble copies by hand
+   ========================================================= */
+const asS = () => S.as[S.mode];
+let asSel = -1, asDrag = null;
+const asView = () => ({unit: Math.min(CV.as.w, CV.as.h)/(CV.as.w < 520 ? 5.2 : 6.4), c:[0,0]});
+function copyM(c){ const r = c.a*Math.PI/180, co = Math.cos(r), si = Math.sin(r); return c.f ? [-co,-si,-si,co,c.x,c.y] : [co,si,-si,co,c.x,c.y]; }
+function segDist(p,a,b){ const dx=b[0]-a[0], dy=b[1]-a[1], L=dx*dx+dy*dy; let t = L ? ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L : 0; t=Math.max(0,Math.min(1,t)); return Math.hypot(a[0]+dx*t-p[0], a[1]+dy*t-p[1]); }
+function sameShape(M1, M2){ // does tile under M1 cover exactly the same region as under M2?
+  const R = mul(inv(M2), M1), P = tile.poly, n = P.length;
+  if (Math.abs(R[0]-1)+Math.abs(R[1])+Math.abs(R[2])+Math.abs(R[3]-1)+Math.abs(R[4])+Math.abs(R[5]) < 1e-6) return true;
+  const step = Math.max(1, Math.floor(n/90));
+  for (let i=0; i<n; i+=step){
+    const q = ap(R, P[i]); let best = Infinity;
+    for (let j=0; j<n && best > 0.025; j++) best = Math.min(best, segDist(q, P[j], P[(j+1)%n]));
+    if (best > 0.025) return false;
+  }
+  return true;
+}
+function describe(c){
+  if (!c.f && c.a === 0) return '돌리지 않고 그대로 밀어서 붙였어요';
+  const parts = [];
+  if (c.f) parts.push('뒤집고');
+  if (c.a) parts.push(`시계 방향으로 ${c.a}° 돌려서`);
+  return parts.join(' ') + ' 붙였어요';
+}
+function trySnap(i){
+  const A = asS(), c = A.copies[i]; c.placed = false; c.slot = null;
+  const bases = [ID, ...A.copies.filter((d,j) => d.placed && j !== i).map(d => d.slot)];
+  const occ = new Set(bases.map(keyOf)), cands = new Map();
+  for (const B of bases) for (const G of gensOf()){ const N = mul(B,G), k = keyOf(N); if (!occ.has(k) && !cands.has(k)) cands.set(k, N); }
+  let near = false;
+  for (const N of cands.values()){
+    if (Math.hypot(N[4]-c.x, N[5]-c.y) > 0.5) continue;
+    if (sameShape(copyM({...c, x:N[4], y:N[5]}), N)){ c.x = N[4]; c.y = N[5]; c.placed = true; c.slot = N; return 'ok'; }
+    near = true;
+  }
+  return near ? 'near' : 'none';
+}
+function asFeedback(res, c){
+  const A = asS(), el = $('asMsg');
+  if (res === 'ok'){
+    const n = A.copies.filter(d => d.placed).length;
+    A.log.push(describe(c)); if (A.log.length > 40) A.log.shift();
+    el.className = 'msg ok'; el.textContent = `딱 맞아요! ${describe(c)}.` + (n === NEED ? ' 이제 테셀레이션을 완성할 수 있어요.' : '');
+  } else if (res === 'near'){
+    A.tries++;
+    el.className = 'msg warn';
+    if (c.f) el.textContent = '뒤집은 타일은 이 자리에서 맞물리지 않아요. 뒤집기를 한 번 더 눌러 볼까요?';
+    else if (S.mode === 'rot'){
+      el.textContent = '자리는 가까운데 튀어나온 곳과 들어간 곳이 맞물리지 않아요. 타일을 돌려 보세요. 몇 도 돌려야 할까요?';
+      if (A.tries >= 3) el.textContent += ' 힌트: 원본의 꼭짓점 ●에는 타일 3개가 모여요. 360° ÷ 3 = ?';
+    } else el.textContent = '자리는 가까운데 맞물리지 않아요. 돌리거나 뒤집지 않은 처음 모습 그대로 대 보세요.';
+  } else { el.className = 'msg info'; el.textContent = '원본이나 이미 붙인 타일 바로 옆에 대 보세요.'; }
+  persist(); updateAsUI();
+}
+function hitCopy(p){
+  const A = asS();
+  for (let i = A.copies.length-1; i >= 0; i--){ const q = ap(inv(copyM(A.copies[i])), p); if (inPath(tile.path, q[0], q[1])) return i; }
+  return -1;
+}
+CV.as.el.addEventListener('pointerdown', e => {
+  ensureTile();
+  const {unit, c} = asView(), p = toWorld('as', e, unit, c), A = asS();
+  const i = hitCopy(p);
+  if (i < 0){ asSel = -1; updateAsUI(); request('as'); return; }
+  const cp = A.copies.splice(i,1)[0]; A.copies.push(cp); asSel = A.copies.length-1;
+  asDrag = {off:[cp.x-p[0], cp.y-p[1]], moved:false, wasPlaced:cp.placed};
+  CV.as.el.setPointerCapture(e.pointerId); CV.as.el.style.cursor = 'grabbing';
+  updateAsUI(); request('as');
+});
+CV.as.el.addEventListener('pointermove', e => {
+  const {unit, c} = asView(), p = toWorld('as', e, unit, c);
+  if (!asDrag){ ensureTile(); CV.as.el.style.cursor = hitCopy(p) >= 0 ? 'grab' : 'default'; return; }
+  const cp = asS().copies[asSel], hw = CV.as.w/2/unit, hh = CV.as.h/2/unit;
+  cp.x = Math.max(-hw+0.3, Math.min(hw-0.3, p[0]+asDrag.off[0])); cp.y = Math.max(-hh+0.3, Math.min(hh-0.3, p[1]+asDrag.off[1]));
+  if (!asDrag.moved){ asDrag.moved = true; if (cp.placed){ cp.placed = false; cp.slot = null; updateAsUI(); } }
+  request('as');
+});
+const asEnd = () => {
+  if (!asDrag) return; const d = asDrag; asDrag = null; CV.as.el.style.cursor = 'grab';
+  if (d.moved){ const c = asS().copies[asSel]; asFeedback(trySnap(asSel), c); }
+  request('as');
+};
+CV.as.el.addEventListener('pointerup', asEnd);
+CV.as.el.addEventListener('pointercancel', asEnd);
+function asTransform(fn){
+  const A = asS(); if (asSel < 0) return;
+  const c = A.copies[asSel]; fn(c);
+  const res = trySnap(asSel);
+  if (res === 'ok') asFeedback(res, c); else { $('asMsg').className = 'msg info'; $('asMsg').textContent = '돌리거나 뒤집은 뒤에 다시 자리에 대 보세요.'; persist(); updateAsUI(); }
+  request('as');
+}
+$('asRotL').onclick = () => asTransform(c => c.a = (c.a + 300) % 360);
+$('asRotR').onclick = () => asTransform(c => c.a = (c.a + 60) % 360);
+$('asFlip').onclick = () => asTransform(c => c.f = !c.f);
+$('asDup').onclick = () => {
+  ensureTile();
+  const A = asS(), {unit} = asView(), hw = CV.as.w/2/unit, hh = CV.as.h/2/unit;
+  if (A.copies.length >= 30){ toast('타일이 너무 많아요. 몇 개를 치워 주세요.'); return; }
+  // spawn in the emptiest spot near the board's edge so it never lands on a tile already placed
+  const m = 1.15, spots = [];
+  for (let i=0; i<=6; i++){ const t = i/6; spots.push([hw-m, -hh+m+(2*hh-2*m)*t], [-hw+m, -hh+m+(2*hh-2*m)*t], [-hw+m+(2*hw-2*m)*t, -hh+m], [-hw+m+(2*hw-2*m)*t, hh-m]); }
+  const others = [[0,0], ...A.copies.map(c => [c.x, c.y])];
+  let best = spots[0], bd = -1;
+  for (const q of spots){ const d = Math.min(...others.map(o => Math.hypot(o[0]-q[0], o[1]-q[1]))); if (d > bd + 1e-9){ bd = d; best = q; } }
+  A.copies.push({x:best[0], y:best[1], a:0, f:false, placed:false, slot:null});
+  asSel = A.copies.length - 1;
+  $('asMsg').className = 'msg info'; $('asMsg').textContent = '원본과 똑같은 타일이 생겼어요. 끌어서 원본 옆에 대 보세요.';
+  persist(); updateAsUI(); request('as');
+};
+$('asDel').onclick = () => { const A = asS(); if (asSel < 0) return; A.copies.splice(asSel,1); asSel = -1; persist(); updateAsUI(); request('as'); };
+$('asClear').onclick = () => { const A = asS(); A.copies = []; asSel = -1; $('asMsg').textContent = ''; persist(); updateAsUI(); request('as'); };
+$('finish').onclick = () => { if (asS().copies.filter(c => c.placed).length < NEED) return; S.unlocked[S.mode] = true; persist(); goStep('result'); toast('테셀레이션이 완성됐어요!'); };
+
+function drawBoard(){
+  const ctx = CV.as.ctx, W = CV.as.w, H = CV.as.h, {unit} = asView(), A = asS(), cx = W/2, cy = H/2;
+  const spr = sprites(unit*dpr, unit);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle = TH.stage; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = TH.line; const gs = 0.5*unit;
+  for (let x = cx % gs; x < W; x += gs) for (let y = cy % gs; y < H; y += gs) ctx.fillRect(x-1,y-1,2,2);
+  const put = M => ctx.setTransform(dpr*unit*M[0], dpr*unit*M[1], dpr*unit*M[2], dpr*unit*M[3], dpr*(unit*M[4]+cx), dpr*(unit*M[5]+cy));
+  put(ID); stamp(ctx, spr, 0);
+  ctx.setLineDash([6/unit,4/unit]); ctx.lineWidth = 2.5/unit; ctx.strokeStyle = TH.accent; ctx.stroke(tile.path); ctx.setLineDash([]);
+  A.copies.forEach((c, i) => {
+    put(copyM(c));
+    if (c.placed){ stamp(ctx, spr, colorIndex(c.slot)); }
+    else { ctx.globalAlpha = 0.72; stamp(ctx, spr, 1); ctx.globalAlpha = 1; }
+    if (i === asSel){ ctx.lineWidth = 3/unit; ctx.strokeStyle = TH.ink; ctx.setLineDash([5/unit,3/unit]); ctx.stroke(tile.path); ctx.setLineDash([]); }
+  });
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if (S.mode === 'rot') for (const pr of tile.pairs){ const s = [cx + pr.pivot[0]*unit, cy + pr.pivot[1]*unit]; ctx.fillStyle = TH.stage; ctx.beginPath(); ctx.arc(s[0], s[1], 6, 0, TAU); ctx.fill(); ctx.fillStyle = TH.ink; ctx.beginPath(); ctx.arc(s[0], s[1], 4, 0, TAU); ctx.fill(); }
+  ctx.font = '600 12px ' + FONT(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const lbl = '원본'; const w = ctx.measureText(lbl).width + 14;
+  ctx.fillStyle = TH.accent; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx-w/2, cy-10, w, 20, 10) : ctx.rect(cx-w/2, cy-10, w, 20); ctx.fill();
+  ctx.fillStyle = TH.stage; ctx.fillText(lbl, cx, cy+0.5);
+}
+function updateAsUI(){
+  const A = asS(), n = A.copies.filter(c => c.placed).length, c = A.copies[asSel];
+  $('asCount').textContent = n;
+  for (const id of ['asRotL','asRotR','asFlip','asDel']) $(id).disabled = !c;
+  $('asSelInfo').textContent = c ? `시계 방향 ${c.a}° 회전 · ${c.f ? '뒤집음' : '뒤집지 않음'}${c.placed ? ' · 붙음' : ''}` : '없음';
+  $('asLog').innerHTML = A.log.map(s => `<li>${s.replace(/[<>&]/g, '')}</li>`).join('');
+  const ok = n >= NEED;
+  $('finish').disabled = !ok;
+  $('finishHint').textContent = S.unlocked[S.mode] ? '이미 열려 있어요. 눌러서 테셀레이션을 볼 수 있어요.' : ok ? '준비됐어요! 눌러서 테셀레이션을 완성하세요.' : `복제한 타일을 ${NEED}개 맞게 붙이면 누를 수 있어요.`;
+  if (S.unlocked[S.mode]) $('finish').disabled = false;
+  $('asExplain').hidden = !(ok || S.unlocked[S.mode]);
+  $('asExplainText').textContent = S.mode === 'rot'
+    ? '회전 방식 타일은 변 1을 꼭짓점 ●을 중심으로 120° 돌려 변 1′을 만들었어요. 그래서 이웃 타일도 그 꼭짓점을 중심으로 120°(또는 240°) 돌아가 있어야 변 1과 변 1′이 맞물려요. 한 꼭짓점에 타일 3개가 모이니 360° ÷ 3 = 120°예요. 뒤집으면(대칭이동) 튀어나온 곳과 들어간 곳의 순서가 거꾸로 되어 맞지 않아요.'
+    : '평행이동 방식 타일은 변 1을 그대로 밀어 변 1′을 만들었어요. 그래서 복제한 타일도 돌리지 않고 밀기만 하면 맞물려요. 돌리거나 뒤집으면 변의 방향이 바뀌어 맞지 않아요. 회전 방식으로 바꿔서 다시 해 보고 비교해 보세요.';
+  $('asPlainWarn').hidden = !(tile && tile.plain);
+  updateLock();
+}
+window.addEventListener('keydown', e => {
+  if (S.step !== 'assemble' || e.target.matches('input,select,textarea')) return;
+  if (e.key === 'r' || e.key === 'R'){ $('asRotR').click(); }
+  if (e.key === 'f' || e.key === 'F'){ $('asFlip').click(); }
+});
+
+/* =========================================================
+   STEP 4 · result
+   ========================================================= */
+let pan = [0,0], pdrag = null;
+const pv = CV.pv.el;
+pv.addEventListener('pointerdown', e => { pdrag = {x:e.clientX, y:e.clientY, pan:[...pan]}; pv.setPointerCapture(e.pointerId); pv.classList.add('grabbing'); });
+pv.addEventListener('pointermove', e => { if (!pdrag) return; pan = [pdrag.pan[0] + e.clientX - pdrag.x, pdrag.pan[1] + e.clientY - pdrag.y]; request('pv'); });
+const endPv = () => { pdrag = null; pv.classList.remove('grabbing'); };
+pv.addEventListener('pointerup', endPv); pv.addEventListener('pointercancel', endPv);
+pv.addEventListener('wheel', e => { e.preventDefault(); setSize(S.tileSize * (e.deltaY < 0 ? 1.08 : 1/1.08)); }, {passive:false});
+function setSize(v){ S.tileSize = Math.max(18, Math.min(140, Math.round(v))); $('tileSize').value = S.tileSize; $('tileSizeO').textContent = S.tileSize; persist(); request('pv'); }
+function drawPreview(){ renderTiling(CV.pv.ctx, CV.pv.w, CV.pv.h, dpr, S.tileSize, pan[0], pan[1], S.showBase, sprites(S.tileSize*dpr, S.tileSize)); }
+function updateLock(){
+  const open = S.unlocked[S.mode];
+  $('resultLocked').hidden = open; $('resultCard').hidden = !open;
+  $('lockIcon').style.display = open ? 'none' : '';
+  $('resultSub').textContent = open ? '완성한 무늬 보기' : '3단계를 마치면 열려요';
+}
+
+/* ---------- shared info ---------- */
+function updateInfo(){
+  $('area').textContent = (tile.area / HEX_AREA).toFixed(3);
+  const v = $('valid');
+  v.className = 'pill ' + (tile.simple ? 'ok' : 'warn');
+  v.textContent = tile.simple ? '겹침 없음' : '선이 엇갈려요 — 타일이 겹쳐요';
+  $('delpt').disabled = !sel;
+  $('legend').innerHTML = tile.pairs.map(pr => `<span><i style="background:var(--p${pr.n+1})"></i>${pr.n+1} ↔ ${pr.n+1}′</span>`).join('') + `<span>실선 변을 고치면 점선 짝 변이 따라 바뀌어요</span>`;
+  $('symInfo').textContent = S.mode === 'rot' ? '회전 방식 · 세 방향의 타일이 120°씩 돌아가며 만나요 (벽지 무늬군 p3)' : '평행이동 방식 · 모든 타일이 같은 방향이에요 (벽지 무늬군 p1)';
+  $('hint').textContent = S.tool === 'shape' ? '굵은 변을 누르면 점이 생겨요 · 점을 끌어 모양을 바꾸고, 두 번 누르면 지워져요' : '타일 안에 눈, 입, 비늘을 그려 보세요 · 모든 타일에 똑같이 그려져요';
+  updateAsUI();
+}
+
+/* ---------- steps & mode ---------- */
+function goStep(s, fromHash){
+  if (!STEPS.includes(s)) s = 'explore';
+  S.step = s; persist();
+  document.querySelectorAll('[data-view]').forEach(v => v.hidden = v.dataset.view !== s);
+  document.querySelectorAll('.steps button').forEach(b => b.dataset.step === s ? b.setAttribute('aria-current','step') : b.removeAttribute('aria-current'));
+  if (!fromHash && location.hash !== '#'+s){ try { location.hash = s; } catch(e) {} }
+  updateLock();
+  if (s === 'explore' && !exM){ exTouch(); }
+  for (const k in CV) fitOne(k);
+  if (!fromHash) window.scrollTo({top:0, behavior:'smooth'});
+}
+document.querySelectorAll('.steps button').forEach(b => b.onclick = () => goStep(b.dataset.step));
+document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => goStep(b.dataset.go));
+window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (STEPS.includes(h) && h !== S.step) goStep(h, true); });
+
+function setMode(m){
+  S.mode = m; sel = null; hover = null; undoStack = []; asSel = -1; exDirty = true; exM = null;
+  $('mode-rot').setAttribute('aria-pressed', m==='rot'); $('mode-trans').setAttribute('aria-pressed', m==='trans');
+  exSel.value = exS().c; $('asMsg').textContent = '';
+  fillPresets(); pan=[0,0]; changed(); exTouch(); updateExUI();
+}
+function setTool(t){
+  S.tool = t; sel = null;
+  $('tool-shape').setAttribute('aria-pressed', t==='shape'); $('tool-draw').setAttribute('aria-pressed', t==='draw');
+  ed.style.cursor = t==='draw' ? 'crosshair' : 'default';
+  changed();
+}
+function fillPresets(){ $('preset').innerHTML = '<option value="">고르기…</option>' + PRESETS[S.mode].map((p,i) => `<option value="${i}">${p.name}</option>`).join(''); }
+$('mode-rot').onclick = () => setMode('rot');
+$('mode-trans').onclick = () => setMode('trans');
+$('tool-shape').onclick = () => setTool('shape');
+$('tool-draw').onclick = () => setTool('draw');
+$('preset').onchange = e => { if (e.target.value==='') return; pushUndo(); S.shapes[S.mode] = presetShape(S.mode, +e.target.value); sel=null; e.target.value=''; changed(); };
+$('reset').onclick = () => { pushUndo(); const o={}; for (const pr of tile.pairs) o[pr.m]=[]; S.shapes[S.mode]=o; sel=null; changed(); toast('정육각형으로 돌아왔어요'); };
+$('undo').onclick = undo;
+$('delpt').onclick = deleteSel;
+$('play').onclick = () => { if (anim) return; anim = {t0:performance.now()}; $('play').disabled = true; request('ed'); };
+$('undoStroke').onclick = () => { if (!S.strokes.length) return; pushUndo(); S.strokes.pop(); changed(); };
+$('clearStrokes').onclick = () => { if (!S.strokes.length) return; pushUndo(); S.strokes = []; changed(); toast('그림을 지웠어요 · 되돌리기로 살릴 수 있어요'); };
+$('center').onclick = () => { pan=[0,0]; request('pv'); };
+document.addEventListener('keydown', e => {
+  if (S.step !== 'design' || e.target.matches('input,select,textarea')) return;
+  if ((e.key==='Delete'||e.key==='Backspace') && sel){ e.preventDefault(); deleteSel(); }
+  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); }
+});
+document.addEventListener('keydown', e => {
+  if (S.step !== 'assemble' || e.target.matches('input,select,textarea')) return;
+  if ((e.key==='Delete'||e.key==='Backspace') && asSel >= 0){ e.preventDefault(); $('asDel').click(); }
+});
+
+const bindCheck = (id, key) => { const el=$(id); el.checked = !!S[key]; el.onchange = () => { S[key] = el.checked; changed(); }; };
+bindCheck('smooth','smooth'); bindCheck('snap','snap'); bindCheck('pieces','pieces'); bindCheck('onecolor','one'); bindCheck('showBase','showBase');
+const bindColor = (id, get, set) => { const el=$(id); el.value = get(); el.oninput = () => { set(el.value); changed(); }; };
+[0,1,2].forEach(i => bindColor('c'+i, () => S.colors[i], v => { S.colors[i]=v; }));
+bindColor('patColor', () => S.patColor, v => { S.patColor=v; drawChips(); });
+bindColor('outline', () => S.outline, v => S.outline=v);
+bindColor('penColor', () => S.penColor, v => S.penColor=v);
+const bindRange = (id, key, fmt) => { const el=$(id), o=$(id+'O'); el.value = S[key]; o.textContent = fmt(S[key]); el.oninput = () => { S[key] = +el.value; o.textContent = fmt(S[key]); if (key==='patAlpha'||key==='patScale') drawChips(); changed(); }; };
+bindRange('patAlpha','patAlpha', v => Math.round(v*100)+'%');
+bindRange('patScale','patScale', v => v.toFixed(1)+'×');
+bindRange('outlineW','outlineW', v => v+'px');
+bindRange('penW','penW', v => v);
+bindRange('tileSize','tileSize', v => v);
+const pal = $('palette');
+pal.innerHTML = '<option value="">색 묶음…</option>' + PALETTES.map((p,i) => `<option value="${i}">${p.name}</option>`).join('');
+pal.onchange = () => { if (pal.value==='') return; S.colors = [...PALETTES[+pal.value].c]; [0,1,2].forEach(i => $('c'+i).value = S.colors[i]); pal.value=''; drawChips(); changed(); };
+const pats = $('pats');
+pats.innerHTML = PATTERNS.map(([k,n]) => `<label class="chip"><input type="radio" name="pat" value="${k}" ${S.pattern===k?'checked':''}><canvas width="80" height="80" data-p="${k}"></canvas>${n}</label>`).join('');
+pats.addEventListener('change', e => { S.pattern = e.target.value; changed(); });
+function drawChips(){
+  pats.querySelectorAll('canvas').forEach(c => {
+    const x = c.getContext('2d'); x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,80,80);
+    x.setTransform(36,0,0,36,40,40);
+    x.fillStyle = S.colors[0]; x.fill(HEX);
+    x.save(); x.clip(HEX); drawPattern(x, c.dataset.p, S.patColor, Math.max(S.patAlpha,0.35), S.patScale); x.restore();
+    x.lineWidth = 1.5/36; x.strokeStyle = S.outline; x.stroke(HEX);
+  });
+}
+// student notes
+document.querySelectorAll('textarea[data-note]').forEach(t => { t.value = S.notes[t.dataset.note] || ''; t.addEventListener('input', () => { S.notes[t.dataset.note] = t.value; persist(); }); });
+
+/* ---------- save / load ---------- */
+let downloads = null;
+(async () => { try { if (window.claude && window.claude.use) downloads = await window.claude.use('downloads'); } catch(e) { downloads = null; } })();
+let toastT = 0;
+function toast(msg){ const t=$('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+function directDownload(filename, blob){
+  try {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    return true;
+  } catch(e){ return false; }
+}
+async function offer(filename, blob, fallback){
+  if (downloads){
+    try { await downloads.save({filename, data:blob}); toast('저장했어요'); return; }
+    catch(err){ if (err && err.code === 'declined') return; }
+  }
+  if (directDownload(filename, blob)){ toast('저장했어요 · 다운로드 폴더를 확인하세요'); return; }
+  fallback();
+}
+$('savePng').onclick = () => {
+  const W = 1600, H = 1000, c = document.createElement('canvas'); c.width=W; c.height=H;
+  const scale = W / CV.pv.w;
+  ensureTile();
+  renderTiling(c.getContext('2d'), W, H, 1, S.tileSize*scale, pan[0]*scale, pan[1]*scale, false, makeSprites(S.tileSize*scale, S.tileSize*scale));
+  c.toBlob(b => offer('my-tessellation.png', b, () => { $('ovImg').src = c.toDataURL('image/png'); $('overlay').hidden = false; }), 'image/png');
+};
+$('closeOv').onclick = () => $('overlay').hidden = true;
+$('overlay').onclick = e => { if (e.target.id === 'overlay') $('overlay').hidden = true; };
+$('saveJson').onclick = () => {
+  const data = JSON.stringify({app:'hex-tessellation', version:2, ...S}, null, 1);
+  offer('my-tessellation-design.json', new Blob([data],{type:'application/json'}), async () => {
+    try { await navigator.clipboard.writeText(data); toast('저장 기능을 쓸 수 없어 설계를 클립보드에 복사했어요'); }
+    catch(e){ toast('이 화면에서는 설계 파일을 저장할 수 없어요'); }
+  });
+};
+$('loadJson').onclick = () => $('file').click();
+$('file').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try { const o = sanitize(JSON.parse(r.result)); if (!o) throw 0; pushUndo(); const tool = S.tool, step = S.step; S = o; S.tool = tool; S.step = step; syncControls(); setMode(S.mode); toast('설계를 불러왔어요'); }
+    catch(err){ toast('이 파일은 테셀레이션 설계 파일이 아니에요'); }
+    e.target.value = '';
+  };
+  r.readAsText(f);
+};
+function syncControls(){
+  [0,1,2].forEach(i => $('c'+i).value = S.colors[i]);
+  for (const [id,k] of [['smooth','smooth'],['snap','snap'],['pieces','pieces'],['onecolor','one'],['showBase','showBase']]) $(id).checked = !!S[k];
+  for (const id of ['patColor','outline','penColor']) $(id).value = S[id];
+  for (const id of ['patAlpha','patScale','outlineW','penW','tileSize']){ $(id).value = S[id]; $(id).dispatchEvent(new Event('input')); }
+  const r = pats.querySelector(`input[value="${S.pattern}"]`); if (r) r.checked = true;
+  document.querySelectorAll('textarea[data-note]').forEach(t => t.value = S.notes[t.dataset.note] || '');
+  drawChips();
+}
+
+/* ---------- teacher menu: tap the title five times quickly ---------- */
+let taps = [];
+$('appTitle').addEventListener('click', () => {
+  const now = Date.now(); taps = taps.filter(t => now - t < 2500); taps.push(now);
+  if (taps.length < 5) return;
+  taps = [];
+  const t = $('teacher'); t.hidden = !t.hidden;
+  if (!t.hidden){ t.open = true; t.scrollIntoView({behavior:'smooth', block:'center'}); toast('선생님 메뉴를 열었어요'); }
+  else toast('선생님 메뉴를 닫았어요');
+});
+$('tUnlock').onclick = () => { S.unlocked[S.mode] = true; persist(); updateAsUI(); goStep('result'); toast((S.mode === 'rot' ? '회전' : '평행이동') + ' 방식 테셀레이션을 열었어요'); };
+let resetArm = 0;
+$('tReset').onclick = () => {
+  const b = $('tReset');
+  if (!resetArm){ b.textContent = '한 번 더 누르면 지워져요'; b.classList.add('primary'); resetArm = setTimeout(() => { resetArm = 0; b.textContent = '이 기기의 학생 기록 모두 지우기'; b.classList.remove('primary'); }, 4000); return; }
+  clearTimeout(resetArm); frozen = true; clearTimeout(saveT);
+  try { localStorage.removeItem(STORE); localStorage.removeItem('hex-tess-v1'); } catch(e) {}
+  try { history.replaceState(null, '', location.pathname + location.search); } catch(e) { location.hash = ''; }
+  location.reload();
+};
+
+/* ---------- theme ---------- */
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const retheme = () => { readTheme(); request(); };
+mq.addEventListener ? mq.addEventListener('change', retheme) : mq.addListener(retheme);
+new MutationObserver(retheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+
+/* ---------- start ---------- */
+readTheme();
+S.tool = 'shape';
+fillPresets();
+exSel.value = exS().c;
+$('mode-rot').setAttribute('aria-pressed', S.mode==='rot'); $('mode-trans').setAttribute('aria-pressed', S.mode==='trans');
+drawChips();
+ensureTile();
+updateExUI();
+const h0 = location.hash.slice(1);
+goStep(STEPS.includes(h0) ? h0 : S.step, true);
+exTouch();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fontFamily = ''; request(); });
+})();
+</script>
+
+</body>
+</html>
