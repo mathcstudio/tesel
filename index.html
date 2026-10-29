@@ -115,7 +115,14 @@ select{font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px 
 
 .qs{display:flex;flex-direction:column;gap:14px}
 .q{display:flex;flex-direction:column;gap:6px}
-.q p{font-weight:500}
+.q p{font-weight:500;line-height:2.1}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opt{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--stage);color:var(--ink);border-radius:999px;padding:5px 14px;cursor:pointer}
+.opt[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+input.blank{font:inherit;font-weight:600;color:var(--accent);background:transparent;border:0;border-bottom:2px solid var(--line);border-radius:0;text-align:center;padding:0 4px;margin:0 3px;max-width:100%}
+input.blank:focus{outline:none;border-bottom-color:var(--accent)}
+.qmark{font-size:12.5px;font-weight:600;min-height:1.2em}
+.qmark.ok{color:var(--ok)} .qmark.no{color:var(--warn)}
 .q p .qn{font-family:var(--f-mono);color:var(--accent);margin-right:6px}
 textarea{font:inherit;font-size:13.5px;width:100%;min-height:62px;resize:vertical;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--stage);color:var(--ink)}
 .explain{background:var(--accent-soft);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
@@ -220,11 +227,7 @@ details.teacher ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:
       </div>
       <div class="card">
         <h2>생각해 보기</h2>
-        <div class="qs">
-          <div class="q"><p><span class="qn">Q1</span>처음 화면에서 A와 B 사이에 겹친 곳이나 빈틈이 생긴 까닭은 무엇일까요?</p><textarea data-note="ex1" aria-label="Q1 답"></textarea></div>
-          <div class="q"><p><span class="qn">Q2</span>변 1′을 어떤 모양으로 바꾸었더니 딱 맞았나요? 변 1의 모양과 비교해 보세요.</p><textarea data-note="ex2" aria-label="Q2 답"></textarea></div>
-          <div class="q"><p><span class="qn">Q3</span>표에서 변 1이 튀어나간 넓이와 변 1′이 들어간 넓이를 비교해 보세요. 왜 같아야 할까요?</p><textarea data-note="ex3" aria-label="Q3 답"></textarea></div>
-        </div>
+        <div class="qs" id="exQs"></div>
         <div class="explain" id="exExplain" hidden><h3>정리</h3><p id="exExplainText"></p></div>
         <div class="bar"><button class="btn primary" data-go="design">다음: 나만의 타일 만들기 →</button></div>
       </div>
@@ -334,11 +337,7 @@ details.teacher ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:
       </div>
       <div class="card">
         <h2>생각해 보기</h2>
-        <div class="qs">
-          <div class="q"><p><span class="qn">Q1</span>복제한 타일을 돌리지 않고 원본 바로 옆에 붙일 수 있었나요?</p><textarea data-note="as1" aria-label="Q1 답"></textarea></div>
-          <div class="q"><p><span class="qn">Q2</span>몇 도 돌려야 딱 맞았나요? 꼭짓점 하나에 모이는 타일 수와 관련지어 그 까닭을 설명해 보세요.</p><textarea data-note="as2" aria-label="Q2 답"></textarea></div>
-          <div class="q"><p><span class="qn">Q3</span>타일을 뒤집으면(대칭이동) 어떻게 되나요? 왜 그럴까요?</p><textarea data-note="as3" aria-label="Q3 답"></textarea></div>
-        </div>
+        <div class="qs" id="asQs"></div>
         <div class="explain" id="asExplain" hidden><h3>정리</h3><p id="asExplainText"></p></div>
         <button class="btn primary big" id="finish" disabled>테셀레이션 완성하기</button>
         <p class="hint" id="finishHint">복제한 타일을 5개 맞게 붙이면 누를 수 있어요.</p>
@@ -552,6 +551,10 @@ try {
 let saveT = 0;
 let frozen = false;
 function persist(){ if (frozen) return; clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch(e) {} }, 300); }
+// save right away when the page is hidden or closed, so an answer typed just before leaving is kept
+function flushSave(){ if (frozen) return; clearTimeout(saveT); try { localStorage.setItem(STORE, JSON.stringify(S)); } catch(e) {} }
+window.addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
 
 let undoStack = [];
 function pushUndo(){ undoStack.push(JSON.stringify({shapes:S.shapes, strokes:S.strokes})); if (undoStack.length > 80) undoStack.shift(); }
@@ -1341,7 +1344,7 @@ function setMode(m){
   S.mode = m; sel = null; hover = null; undoStack = []; asSel = -1; exDirty = true; exM = null;
   $('mode-rot').setAttribute('aria-pressed', m==='rot'); $('mode-trans').setAttribute('aria-pressed', m==='trans');
   exSel.value = exS().c; $('asMsg').textContent = '';
-  fillPresets(); pan=[0,0]; changed(); exTouch(); updateExUI();
+  fillPresets(); pan=[0,0]; changed(); exTouch(); updateExUI(); renderQs();
 }
 function setTool(t){
   S.tool = t; sel = null;
@@ -1401,7 +1404,71 @@ function drawChips(){
   });
 }
 // student notes
-document.querySelectorAll('textarea[data-note]').forEach(t => { t.value = S.notes[t.dataset.note] || ''; t.addEventListener('input', () => { S.notes[t.dataset.note] = t.value; persist(); }); });
+// student questions: short choices and fill-in blanks, checked as soon as they are answered
+const num = x => v => v.replace(/[^0-9.]/g, '') === x;
+const QS = {
+  ex: [
+    {id:'ex-q1', parts:['변 1이 바깥으로 튀어나가면, 변 1′은 그만큼 안으로 ', {w:6, ok:v => /들어|오목|파/.test(v)}, ' 한다.']},
+    {id:'ex-q2', text:'딱 맞았을 때, 변 1이 튀어나간 넓이와 변 1′이 들어간 넓이는?', opts:['같다','다르다'], ans:0},
+    {id:'ex-q3', text:'오려 붙여 만든 내 타일의 넓이를 처음 정육각형의 넓이와 비교하면?', opts:['같다','더 크다','더 작다'], ans:0},
+    {id:'ex-q4', parts:['그 까닭은 한쪽에서 오려 낸 조각을 다른 쪽에 그대로 ', {w:6, ok:v => /붙/.test(v)}, ' 때문이다.']},
+  ],
+  as: {
+    rot: [
+      {id:'as-rot-q1', text:'복제한 타일을 돌리지 않고 원본 바로 옆에 붙일 수 있었나요?', opts:['예','아니요'], ans:1},
+      {id:'as-rot-q2', parts:['복제한 타일을 ', {w:4, ok:v => num('120')(v) || num('240')(v)}, '° 돌렸더니 딱 맞았다.']},
+      {id:'as-rot-q3', parts:['꼭짓점 ● 하나에 타일이 ', {w:3, ok:num('3')}, '개 모이므로, 360° ÷ ', {w:3, ok:num('3')}, ' = ', {w:4, ok:num('120')}, '°이다.']},
+      {id:'as-rot-q4', text:'타일을 뒤집었을 때(대칭이동) 맞는 자리가 있었나요?', opts:['예','아니요'], ans:1},
+    ],
+    trans: [
+      {id:'as-trans-q1', text:'복제한 타일을 돌리지 않고 원본 바로 옆에 붙일 수 있었나요?', opts:['예','아니요'], ans:0},
+      {id:'as-trans-q2', parts:['복제한 타일을 ', {w:4, ok:num('0')}, '° 돌렸더니 딱 맞았다.']},
+      {id:'as-trans-q3', parts:['평행이동 방식에서는 복제한 타일을 돌리지 않고 ', {w:6, ok:v => /밀|옮|평행/.test(v)}, '서 붙이면 된다.']},
+      {id:'as-trans-q4', text:'타일을 뒤집었을 때(대칭이동) 맞는 자리가 있었나요?', opts:['예','아니요'], ans:1},
+    ],
+  },
+};
+function judge(q, final){
+  if (q.opts){ const v = S.notes[q.id]; return v == null || v === '' ? '' : (+v === q.ans ? 'ok' : 'no'); }
+  const blanks = q.parts.map((p,k) => [p,k]).filter(([p]) => typeof p !== 'string');
+  const vals = blanks.map(([,k]) => (S.notes[q.id+'-'+k] || '').trim());
+  if (blanks.every(([p], i) => vals[i] && p.ok(vals[i].replace(/\s/g,'')))) return 'ok';
+  return final && vals.every(Boolean) ? 'no' : '';
+}
+function markQ(el, st){ el.className = 'qmark ' + st; el.textContent = st === 'ok' ? '✓ 맞아요' : st === 'no' ? '다시 생각해 볼까요?' : ''; }
+function drawQs(cid, list){
+  const box = $(cid); box.innerHTML = '';
+  list.forEach((q, i) => {
+    const d = document.createElement('div'); d.className = 'q';
+    const p = document.createElement('p'); p.innerHTML = `<span class="qn">Q${i+1}</span>`;
+    const mark = document.createElement('div');
+    d.append(p);
+    if (q.opts){
+      p.append(q.text);
+      const row = document.createElement('div'); row.className = 'opts';
+      q.opts.forEach((o, k) => {
+        const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.textContent = o;
+        b.setAttribute('aria-pressed', S.notes[q.id] === String(k));
+        b.onclick = () => { S.notes[q.id] = String(k); persist(); row.querySelectorAll('.opt').forEach((x, j) => x.setAttribute('aria-pressed', j === k)); markQ(mark, judge(q, true)); };
+        row.append(b);
+      });
+      d.append(row);
+    } else {
+      q.parts.forEach((part, k) => {
+        if (typeof part === 'string'){ p.append(part); return; }
+        const inp = document.createElement('input'); inp.className = 'blank'; inp.type = 'text'; inp.autocomplete = 'off';
+        inp.style.width = part.w + 'em'; inp.value = S.notes[q.id+'-'+k] || ''; inp.setAttribute('aria-label', `Q${i+1} 빈칸`);
+        inp.addEventListener('input', () => { S.notes[q.id+'-'+k] = inp.value; persist(); const st = judge(q, false); markQ(mark, st === 'ok' ? 'ok' : ''); });
+        inp.addEventListener('change', () => markQ(mark, judge(q, true)));
+        p.append(inp);
+      });
+    }
+    d.append(mark); markQ(mark, judge(q, true));
+    box.append(d);
+  });
+}
+function renderQs(){ drawQs('exQs', QS.ex); drawQs('asQs', QS.as[S.mode]); }
+renderQs();
 
 /* ---------- save / load ---------- */
 let downloads = null;
@@ -1457,7 +1524,7 @@ function syncControls(){
   for (const id of ['patColor','outline','penColor']) $(id).value = S[id];
   for (const id of ['patAlpha','patScale','outlineW','penW','tileSize']){ $(id).value = S[id]; $(id).dispatchEvent(new Event('input')); }
   const r = pats.querySelector(`input[value="${S.pattern}"]`); if (r) r.checked = true;
-  document.querySelectorAll('textarea[data-note]').forEach(t => t.value = S.notes[t.dataset.note] || '');
+  renderQs();
   drawChips();
 }
 
