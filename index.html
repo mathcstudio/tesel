@@ -775,20 +775,56 @@ function buildEx(){
   exDirty = false;
 }
 function sampleArea(b, st, fn){ let n = 0; for (let y=b[1]+st/2; y<b[3]; y+=st) for (let x=b[0]+st/2; x<b[2]; x+=st) if (fn(x,y)) n++; return n*st*st; }
+// Exact area of the part of a closed polygon on one side of a line (Sutherland–Hodgman clip + shoelace).
+function clipArea(P, f){
+  const out = [], n = P.length;
+  for (let i=0; i<n; i++){
+    const a = P[i], b = P[(i+1)%n], fa = f(a), fb = f(b);
+    if (fa >= 0) out.push(a);
+    if ((fa >= 0) !== (fb >= 0)){ const t = fa/(fa-fb); out.push([a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]); }
+  }
+  let s = 0; for (let i=0; i<out.length; i++){ const p = out[i], q = out[(i+1)%out.length]; s += p[0]*q[1]-q[0]*p[1]; }
+  return Math.abs(s)/2;
+}
+// "튀어나간/들어간" are measured against the straight side of the original hexagon, not the whole hexagon.
+function sideAreas(pts, i){
+  const A = vtx(i), n = ON(A, vtx(i+1)), side = p => (p[0]-A[0])*n[0] + (p[1]-A[1])*n[1];
+  return {out: clipArea(pts, side), in: clipArea(pts, p => -side(p))};
+}
+function curveGap(P, Q){ let m = 0; for (const p of P){ let b = Infinity; for (let j=0; j<Q.length-1 && b > 1e-9; j++) b = Math.min(b, segDist(p, Q[j], Q[j+1])); m = Math.max(m, b); } return m; }
+// Overlap (A∩B) and gap (between the two curves, in neither tile) by exact scanline intervals.
+function spans(poly, y){
+  const xs = [];
+  for (let i=0, n=poly.length; i<n; i++){ const a = poly[i], b = poly[(i+1)%n]; if ((a[1] <= y) !== (b[1] <= y)) xs.push(a[0] + (y-a[1])*(b[0]-a[0])/(b[1]-a[1])); }
+  xs.sort((u,v) => u-v); const out = []; for (let i=0; i+1<xs.length; i+=2) out.push([xs[i], xs[i+1]]); return out;
+}
+function cut(I, J){ const out = []; let i = 0, j = 0; while (i < I.length && j < J.length){ const lo = Math.max(I[i][0], J[j][0]), hi = Math.min(I[i][1], J[j][1]); if (hi > lo) out.push([lo,hi]); if (I[i][1] < J[j][1]) i++; else j++; } return out; }
+const spanLen = I => I.reduce((s,[a,b]) => s + b - a, 0);
+function overlapGap(g){
+  const B = g.poly.map(q => ap(g.pr.T, q)), Rp = [...g.sS.map(o=>o.p), ...g.bM];
+  const y0 = g.bbS[1], y1 = g.bbS[3], N = 600, dy = (y1-y0)/N;
+  let over = 0, gap = 0;
+  for (let k=0; k<N; k++){
+    const y = y0 + (k+0.5)*dy, a = spans(g.poly, y), b = spans(B, y), r = spans(Rp, y);
+    const ab = cut(a,b);
+    over += spanLen(ab);
+    gap += spanLen(r) - spanLen(cut(r,a)) - spanLen(cut(r,b)) + spanLen(cut(r,ab));
+  }
+  return {over: over*dy, gap: Math.max(0, gap*dy)};
+}
 function exMeasure(){
-  const g = exG, st = 0.012, pct = v => v / HEX_AREA * 100;
-  const inA = (x,y) => inPath(g.A, x, y);
-  const inB = (x,y) => { const q = ap(g.Ti, [x,y]); return inPath(g.A, q[0], q[1]); };
-  const inHex = (x,y) => inPath(HEX, x, y);
+  const g = exG, pct = v => v / HEX_AREA * 100;
+  const mA = sideAreas(g.mS.map(o=>o.p), g.pr.m), sA = sideAreas(g.sS.map(o=>o.p), g.pr.s);
+  const sP = g.sS.map(o=>o.p);
   exM = {
-    mOut: pct(sampleArea(g.bbM, st, (x,y) => inPath(g.Pm,x,y,'evenodd') && !inHex(x,y))),
-    mIn:  pct(sampleArea(g.bbM, st, (x,y) => inPath(g.Pm,x,y,'evenodd') && inHex(x,y))),
-    sOut: pct(sampleArea(g.bbS, st, (x,y) => inPath(g.Ps,x,y,'evenodd') && !inHex(x,y))),
-    sIn:  pct(sampleArea(g.bbS, st, (x,y) => inPath(g.Ps,x,y,'evenodd') && inHex(x,y))),
-    over: pct(sampleArea(g.bbS, st, (x,y) => inA(x,y) && inB(x,y))),
-    gap:  pct(sampleArea(g.bbS, st, (x,y) => inPath(g.R,x,y,'evenodd') && !inA(x,y) && !inB(x,y))),
+    mOut: pct(mA.out), mIn: pct(mA.in), sOut: pct(sA.out), sIn: pct(sA.in),
+    ...Object.fromEntries(Object.entries(overlapGap(g)).map(([k,v]) => [k, pct(v)])),
+    dev: Math.max(curveGap(sP, g.bM), curveGap(g.bM, sP)),
   };
-  exM.ok = exM.over + exM.gap < 0.6;
+  // fitted only when edge 1′ is exactly the moved copy of edge 1
+  exM.ok = exM.dev < 0.004;
+  if (exM.ok){ exM.over = 0; exM.gap = 0; }
+  exM.near = !exM.ok && exM.dev < 0.08;
   if (exM.ok && !exS().solved){ exS().solved = true; persist(); toast('딱 맞았어요! 정리를 읽어 보세요.'); }
   updateExUI();
 }
@@ -888,6 +924,7 @@ function updateExUI(){
     $('exOver').textContent = f(exM.over); $('exGap').textContent = f(exM.gap);
     const st = $('exStatus');
     if (exM.ok){ st.className = 'pill ok'; st.textContent = '딱 맞아요'; }
+    else if (exM.near){ st.className = 'pill warn'; st.textContent = '거의 맞아요 · 조금 더 정확하게'; }
     else if (exM.over > 0.3 && exM.gap > 0.3){ st.className = 'pill warn'; st.textContent = '겹친 곳과 빈틈이 있어요'; }
     else if (exM.over > 0.3){ st.className = 'pill warn'; st.textContent = '겹친 곳이 있어요'; }
     else { st.className = 'pill warn'; st.textContent = '빈틈이 있어요'; }
