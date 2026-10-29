@@ -212,6 +212,7 @@ details.teacher ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:
             </tbody>
           </table>
         </div>
+        <p class="hint">변 1′이 변 1을 그대로 옮긴 모양이 되면, 변 1이 튀어나간 넓이와 변 1′이 들어간 넓이가 똑같아져요.</p>
         <div class="stats">
           <span class="stat">A와 B가 겹친 넓이 <b id="exOver">0.0</b></span>
           <span class="stat">빈틈 넓이 <b id="exGap">0.0</b></span>
@@ -854,7 +855,16 @@ CV.ex.el.addEventListener('pointermove', e => {
   for (const t of exTargets()) if (Math.hypot(t[0]-q[0], t[1]-q[1]) < 0.06){ q = t; break; }
   exS().pts[exDrag] = q; exTouch();
 });
-const exEnd = () => { if (exDrag >= 0){ exDrag = -1; exTouch(); } };
+// When the student's edge 1′ already lies within a few pixels of the moved copy of edge 1 everywhere,
+// lock it onto that copy exactly, so the fitted state really is the same curve and the areas agree.
+const exEnd = () => {
+  if (exDrag < 0) return;
+  exDrag = -1;
+  buildEx();
+  const sP = exG.sS.map(o => o.p), dev = Math.max(curveGap(sP, exG.bM), curveGap(exG.bM, sP));
+  if (dev >= 0.004 && dev < 0.045){ exS().pts = exTargets(); toast('거의 맞아서 딱 맞게 붙였어요'); }
+  exTouch();
+};
 CV.ex.el.addEventListener('pointerup', exEnd);
 CV.ex.el.addEventListener('pointercancel', exEnd);
 CV.ex.el.addEventListener('dblclick', e => {
@@ -924,7 +934,7 @@ function updateExUI(){
     $('exOver').textContent = f(exM.over); $('exGap').textContent = f(exM.gap);
     const st = $('exStatus');
     if (exM.ok){ st.className = 'pill ok'; st.textContent = '딱 맞아요'; }
-    else if (exM.near){ st.className = 'pill warn'; st.textContent = '거의 맞아요 · 조금 더 정확하게'; }
+    else if (exM.near){ st.className = 'pill warn'; st.textContent = '거의 맞아요 · 힌트를 켜고 점을 맞춰 보세요'; }
     else if (exM.over > 0.3 && exM.gap > 0.3){ st.className = 'pill warn'; st.textContent = '겹친 곳과 빈틈이 있어요'; }
     else if (exM.over > 0.3){ st.className = 'pill warn'; st.textContent = '겹친 곳이 있어요'; }
     else { st.className = 'pill warn'; st.textContent = '빈틈이 있어요'; }
